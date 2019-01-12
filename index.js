@@ -29,6 +29,10 @@ io.on('connection', function (socket) {
     socket.on('disconnect', function () {
         socket.broadcast.emit('user control', { message: username + ' disconnected!' });
     });
+
+    socket.on('webrtc', function(data){
+        socket.broadcast.emit('webrtc', data);
+    })
 });
 
 server.listen(PORT, function () {

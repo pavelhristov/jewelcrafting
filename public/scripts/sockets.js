@@ -22,6 +22,8 @@ container.querySelector('button').addEventListener('click', function (ev) {
 
         <br>
         <input type="file" class="input-file" accept="image/*"/>
+        <button class="start-call">Start Call</button>
+        <video autoplay playsinline></video>
     </div>`;
     setSockets(username);
 });
@@ -94,5 +96,82 @@ function setSockets(username) {
 
     socket.on('send file', function (data) {
         showMessage(data.username, data.file, data.type);
+    });
+
+    let pc;
+    container.querySelector('.start-call').addEventListener('click', function (ev) {
+        start(socket).then(function (res) {
+            pc = res;
+        });
+    });
+
+    let remoteVideo = container.querySelector('video');
+    socket.on('webrtc', function (data) {
+        console.log(data);
+        if (!pc) {
+            pc = new RTCPeerConnection(null);
+        }
+
+        if (data.type === 'addIceCandidate') {
+            pc.onicecandidate = function (ev) {
+                socket.emit('webrtc', { type: 'addIceCandidate', candidate: ev.candidate });
+            };
+
+            pc.ontrack = function (ev) {
+                remoteVideo.srcObject = ev.streams && ev.streams.length ? ev.streams[0] : ev.stream;
+            };
+
+            return;
+        }
+
+        if (data.type === 'setRemoteDescription') {
+            pc.setRemoteDescription(data.desc).then(function (err) {
+                console.log(err)
+            }, function (err) { console.log(err) });
+
+            pc.createAnswer().then(function (desc) {
+                return pc.setLocalDescription(desc).then(function () {
+                    socket.emit('webrtc', { type: 'setRemoteAnswer', desc });
+                });
+            }, function (err) { console.log(err) });
+
+            return;
+        }
+
+        if (data.type === 'setRemoteAnswer') {
+            console.log(pc);
+            pc.setRemoteDescription(data.desc);
+            return;
+        }
+    })
+}
+
+function startCall(stream, socket) {
+    var servers = null;
+    let pc = new RTCPeerConnection(servers);
+    pc.onicecandidate = function (ev) {
+        socket.emit('webrtc', { type: 'addIceCandidate', candidate: ev.candidate });
+    };
+
+    pc.addStream(stream);
+    pc.createOffer({
+        offerToReceiveAudio: 1,
+        offerToReceiveVideo: 1
+    }).then(function (desc) {
+        pc.setLocalDescription(desc).then(function () {
+            socket.emit('webrtc', { type: 'setRemoteDescription', desc });
+        });
+    }, function (err) { console.log(err) });
+
+    return pc;
+}
+
+function start(socket) {
+    return navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: true
+    }).then(function (res) {
+        container.querySelector('video').srcObject = res;
+        return startCall(res, socket);
     });
 }

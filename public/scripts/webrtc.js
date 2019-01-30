@@ -3,7 +3,18 @@
 const remoteVideo = document.getElementById('remoteVideo');
 const localVideo = document.getElementById('localVideo');
 const offerOptions = { offerToReceiveAudio: 1, offerToReceiveVideo: 1 };
-const rtcConfig = null;
+
+// https://gist.github.com/sagivo/3a4b2f2c7ac6e1b5267c2f1f59ac6c6b list of open stun/turn servers
+const rtcConfig = {
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        {
+            urls: 'turn:numb.viagenie.ca',
+            credential: 'muazkh',
+            username: 'webrtc@live.com'
+        }
+    ]
+};
 
 function onError(error) {
     console.log(error.toString());
@@ -19,12 +30,12 @@ function sender(socket) {
     return {
         create() {
             pc = new RTCPeerConnection(rtcConfig);
-            socket.on('webrtc', function (data){
-                if(data.type === 'recieverIce'){
+            socket.on('webrtc', function (data) {
+                if (data.type === 'recieverIce') {
                     pc.addIceCandidate(data.candidate);
                 }
 
-                if(data.type === 'setRemoteAnswer'){
+                if (data.type === 'setRemoteAnswer') {
                     pc.setRemoteDescription(data.desc);
                 }
             })
@@ -32,7 +43,7 @@ function sender(socket) {
         registerIceCandidate() {
             pc.onicecandidate = function (ev) {
                 if (ev.candidate) {
-                    socket.emit('webrtc', {type: 'senderIce', candidate: ev.candidate})
+                    socket.emit('webrtc', { type: 'senderIce', candidate: ev.candidate })
                 }
             }
         },
@@ -48,10 +59,11 @@ function sender(socket) {
                 return pc.createOffer(offerOptions);
             }).then(function (desc) {
                 pc.setLocalDescription(desc);
-                socket.emit('webrtc', {type: 'setRemoteDescription', desc });
+                socket.emit('webrtc', { type: 'setRemoteDescription', desc });
             }, onError);
         },
         setRemoteDescription(desc) {
+            pc.ontrack = gotRemoteStream;
             pc.setRemoteDescription(desc);
         },
         get() {
@@ -62,11 +74,12 @@ function sender(socket) {
 
 function reciever(socket) {
     let pc;
+    let _stream;
     return {
         create() {
             pc = new RTCPeerConnection(rtcConfig);
-            socket.on('webrtc', function (data){
-                if(data.type === 'senderIce'){
+            socket.on('webrtc', function (data) {
+                if (data.type === 'senderIce') {
                     pc.addIceCandidate(data.candidate);
                 }
             })
@@ -74,28 +87,17 @@ function reciever(socket) {
         registerIceCandidate() {
             pc.onicecandidate = function (ev) {
                 if (ev.candidate) {
-                    socket.emit('webrtc', {type: 'recieverIce', candidate: ev.candidate})
+                    socket.emit('webrtc', { type: 'recieverIce', candidate: ev.candidate })
                 }
             }
         },
         setRemoteDescription(desc) {
             pc.ontrack = gotRemoteStream;
             pc.setRemoteDescription(desc);
-
             return pc.createAnswer().then(function (desc) {
                 pc.setLocalDescription(desc);
 
-                return desc
-            }, onError);
-        },
-        setRemoteDescription2(desc){
-            pc.ontrack = gotRemoteStream;
-            pc.setRemoteDescription(desc);
-
-            return pc.createAnswer().then(function (desc) {
-                pc.setLocalDescription(desc);
-
-                socket.emit('webrtc', {type: 'setRemoteAnswer', desc });
+                socket.emit('webrtc', { type: 'setRemoteAnswer', desc });
             }, onError);
         },
         get() {

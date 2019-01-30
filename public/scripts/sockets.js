@@ -97,12 +97,12 @@ function setSockets(username) {
         showMessage(data.username, data.file, data.type);
     });
 
-    socket.on('webrtc', function(data){
-        if(data.type === 'setRemoteDescription'){
+    socket.on('webrtc', function (data) {
+        if (data.type === 'setRemoteDescription') {
             let pc = reciever(socket);
             pc.create();
             pc.registerIceCandidate();
-            pc.setRemoteDescription2(data.desc);
+            pc.setRemoteDescription(data.desc);
         }
     });
 

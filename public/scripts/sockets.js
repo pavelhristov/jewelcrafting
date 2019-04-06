@@ -74,23 +74,25 @@ function setSockets(username) {
 
     const fileInput = container.querySelector('.input-file');
     fileInput.addEventListener('change', function (ev) {
-        let file = fileInput.files[0];
-        if (!file) {
-            return false;
+        for (let i = 0; i < this.files.length; i++) {
+            let file = this.files[i];
+            if (!file) {
+                return false;
+            }
+
+            // TODO: stream it, chunk it, slice it, chop it!
+            let reader = new FileReader();
+            reader.readAsBinaryString(file);
+
+            reader.onload = function () {
+                let result = btoa(reader.result)
+                socket.emit('send file', { file: result, type: 'image' });
+                showMessage(username, result, MESSAGE_TYPE.IMAGE);
+            };
+            reader.onerror = function () {
+                console.error('Error while reading the file!');
+            };
         }
-
-        // TODO: stream it, chunk it, slice it, chop it!
-        let reader = new FileReader();
-        reader.readAsBinaryString(file);
-
-        reader.onload = function () {
-            let result = btoa(reader.result)
-            socket.emit('send file', { file: result, type: 'image' });
-            showMessage(username, result, MESSAGE_TYPE.IMAGE);
-        };
-        reader.onerror = function () {
-            console.error('Error while reading the file!');
-        };
     });
 
     socket.on('send file', function (data) {

@@ -65,16 +65,12 @@ function sender(socket) {
         setRemoteDescription(desc) {
             pc.ontrack = gotRemoteStream;
             pc.setRemoteDescription(desc);
-        },
-        get() {
-            return pc;
         }
     }
 }
 
 function reciever(socket) {
     let pc;
-    let _stream;
     return {
         create() {
             pc = new RTCPeerConnection(rtcConfig);
@@ -94,14 +90,11 @@ function reciever(socket) {
         setRemoteDescription(desc) {
             pc.ontrack = gotRemoteStream;
             pc.setRemoteDescription(desc);
-            return pc.createAnswer().then(function (desc) {
+            pc.createAnswer().then(function (desc) {
                 pc.setLocalDescription(desc);
 
                 socket.emit('webrtc', { type: 'setRemoteAnswer', desc });
             }, onError);
-        },
-        get() {
-            return pc;
         }
     }
 }

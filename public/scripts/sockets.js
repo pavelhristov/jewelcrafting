@@ -188,6 +188,13 @@ let users = (function () {
         let header = document.createElement('div');
         header.classList += 'chat-header';
         header.innerText += username;
+
+        let close = document.createElement('span');
+        close.innerText = 'X';
+        close.classList += 'close-icon';
+        close.addEventListener('click', closeChatHandler);
+        
+        header.appendChild(close);
         chat.appendChild(header);
 
         let messages = document.createElement('div');
@@ -201,6 +208,14 @@ let users = (function () {
 
         document.querySelector('body').appendChild(chat);
         loggedUsers[username].chat = chat;
+    }
+
+    function closeChatHandler(ev){
+        let wrapper = ev.target.closest('.chat-wrapper');
+        let username = wrapper.getAttribute('data-username');
+        wrapper.parentNode.removeChild(wrapper);
+
+        delete loggedUsers[username].chat; 
     }
 
     function showMessage(username, message, type) {

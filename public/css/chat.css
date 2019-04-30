@@ -10,28 +10,33 @@
     width: 300px;
 }
 
-.chat-wrapper .chat-header {
-    border: 1px solid red;
-    height: 30px;
-}
+    .chat-wrapper .chat-header {
+        border: 1px solid red;
+        height: 30px;
+    }
 
-.chat-wrapper .chat-messages{
-    border: 1px solid green;
-    height: 300px;
-}
+        .chat-wrapper .chat-header .close-icon{
+            float: right;
+            color: red;
+        }
 
-.chat-wrapper .chat-messages .chat-message > div {
-    display: inline-block
-}
+    .chat-wrapper .chat-messages{
+        border: 1px solid green;
+        height: 300px;
+    }
 
-.chat-wrapper .chat-input{
-    border: 1px solid purple;
-    height: 50px;
-    min-width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-    resize: none;
-}
+        .chat-wrapper .chat-messages .chat-message > div {
+            display: inline-block
+        }
+
+    .chat-wrapper .chat-input{
+        border: 1px solid purple;
+        height: 50px;
+        min-width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        resize: none;
+    }
 
 /*--------------------------------------------------
  *   Users List
@@ -46,6 +51,6 @@
     right: 0;
 }
 
-.users-list > div{
-    border-bottom: 1px solid darkred;
-}
+    .users-list > div{
+        border-bottom: 1px solid darkred;
+    }

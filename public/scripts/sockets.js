@@ -1,11 +1,14 @@
+/* globals console, io, sender, reciever */
+
 'use strict';
 
 const container = document.getElementById('container');
 const MESSAGE_TYPE = {
     SYSTEM: 'system',
     IMAGE: 'image'
-}
+};
 
+let gems;
 container.querySelector('button').addEventListener('click', function (ev) {
     let username = this.previousElementSibling.value || '';
     username = username.trim();
@@ -14,36 +17,19 @@ container.querySelector('button').addEventListener('click', function (ev) {
         return false;
     }
 
-    container.innerHTML = `
-    <div>
-        <div class="messages"></div>
-        <input class="input-message"/>
-        <button class="btn-message">Send Message</button>
-
-        <br>
-        <input type="file" class="input-file" accept="image/*"/>
-        <button class="start-call">Start Call</button>
-    </div>`;
-    setSockets(username);
+    container.innerHTML = ``;
+    gems = setSockets(username, users.showMessage);
 });
 
-function setSockets(username) {
+function setSockets(username, showMessage) {
     const socket = io('', { query: `name=${username}` });
 
-    const input = container.querySelector('.input-message');
-    container.querySelector('.btn-message').addEventListener('click', function (ev) {
-        let message = input.value;
-        if (!message || message.length < 1) {
-            return false;
-        }
-
-        input.value = '';
-        socket.emit('chat message', { username: 'pesho', message });
-        showMessage(username, message);
-    });
+    function sendMessage({ username, message }) {
+        socket.emit('chat message', { username, message });
+    }
 
     socket.on('chat message', function (data) {
-        showMessage(data.username, data.message);
+        showMessage(data.username, data.message, data.type);
     });
 
     socket.on('user control', function (data) {
@@ -72,86 +58,74 @@ function setSockets(username) {
 
     socket.emit('user control', { status: 'get users' });
 
-    let messagesContainer = container.querySelector('.messages');
-    function showMessage(username, message, type) {
-        let content = '';
-        switch (type) {
-            case MESSAGE_TYPE.SYSTEM:
-                content = `<i>${message}</i>`;
-                break;
-            case MESSAGE_TYPE.IMAGE:
-                content = `${username}: <img src="data:image/jpeg;base64,${message}" height="150" />`;
-                break;
+    //----------------------------------------------------------------------------
+    // const fileInput = container.querySelector('.input-file');
+    // fileInput.addEventListener('change', function (ev) {
+    //     for (let i = 0; i < this.files.length; i++) {
+    //         let file = this.files[i];
+    //         if (!file) {
+    //             return false;
+    //         }
 
-            default:
-                content = `${username}: ${message}`;
-                break;
-        }
+    //         // TODO: stream it, chunk it, slice it, chop it!
+    //         let reader = new FileReader();
+    //         reader.readAsBinaryString(file);
 
-        let div = document.createElement('div');
-        div.innerHTML = content;
-        messagesContainer.appendChild(div);
-    }
+    //         reader.onload = function () {
+    //             let result = btoa(reader.result);
+    //             socket.emit('send file', { file: result, type: 'image' });
+    //             showMessage(username, result, MESSAGE_TYPE.IMAGE);
+    //         };
+    //         reader.onerror = function () {
+    //             console.error('Error while reading the file!');
+    //         };
+    //     }
+    // });
 
-    const fileInput = container.querySelector('.input-file');
-    fileInput.addEventListener('change', function (ev) {
-        for (let i = 0; i < this.files.length; i++) {
-            let file = this.files[i];
-            if (!file) {
-                return false;
-            }
+    // socket.on('send file', function (data) {
+    //     showMessage(data.username, data.file, data.type);
+    // });
 
-            // TODO: stream it, chunk it, slice it, chop it!
-            let reader = new FileReader();
-            reader.readAsBinaryString(file);
+    // socket.on('webrtc', function (data) {
+    //     if (data.type === 'setRemoteDescription') {
+    //         let pc = reciever(socket);
+    //         pc.create();
+    //         pc.registerIceCandidate();
+    //         pc.setRemoteDescription(data.desc);
+    //     }
+    // });
 
-            reader.onload = function () {
-                let result = btoa(reader.result)
-                socket.emit('send file', { file: result, type: 'image' });
-                showMessage(username, result, MESSAGE_TYPE.IMAGE);
-            };
-            reader.onerror = function () {
-                console.error('Error while reading the file!');
-            };
-        }
-    });
+    // container.querySelector('.start-call').addEventListener('click', function (ev) {
+    //     let s = sender(socket);
+    //     s.create();
+    //     s.registerIceCandidate();
+    //     s.createStream();
+    // });
+    //----------------------------------------------------------------------------
 
-    socket.on('send file', function (data) {
-        showMessage(data.username, data.file, data.type);
-    });
-
-    socket.on('webrtc', function (data) {
-        if (data.type === 'setRemoteDescription') {
-            let pc = reciever(socket);
-            pc.create();
-            pc.registerIceCandidate();
-            pc.setRemoteDescription(data.desc);
-        }
-    });
-
-    container.querySelector('.start-call').addEventListener('click', function (ev) {
-        let s = sender(socket);
-        s.create();
-        s.registerIceCandidate();
-        s.createStream();
-    });
+    return {
+        sendMessage
+    };
 }
 
 let users = (function () {
     let loggedUsers = {};
     let usersList = document.createElement('div');
-    usersList.classList += 'usersList';
+    usersList.classList += 'users-list';
     document.querySelector('body').appendChild(usersList);
+
+    bindEvents();
 
     function add(username) {
         if (!loggedUsers[username]) {
-            loggedUsers[username] = username;
+            loggedUsers[username] = { username };
             let userInfo = document.createElement('div');
             userInfo.textContent = username;
             userInfo.setAttribute('data-username', username);
+            userInfo.classList += 'user-info';
             usersList.appendChild(userInfo);
         }
-    };
+    }
 
     function remove(username) {
         if (!username) {
@@ -165,7 +139,103 @@ let users = (function () {
         }
     }
 
+    function bindEvents() {
+        usersList.addEventListener('click', function (ev) {
+            if (!ev || !ev.target || !ev.target.classList) {
+                return;
+            }
+
+            if (ev.target.classList.contains('user-info')) {
+                let username = ev.target.getAttribute('data-username');
+                openChat(username);
+            }
+        });
+    }
+
+    function sendMessageHandler(ev) {
+        if (!ev || !ev.target || !ev.target.classList) {
+            return;
+        }
+
+        if (ev.keyCode === 13 && ev.target.classList.contains('chat-input')) {
+            let username = ev.target.closest('.chat-wrapper').getAttribute('data-username');
+            let message = ev.target.value;
+            if (!message || message.length < 1) {
+                return false;
+            }
+    
+            ev.target.value = '';
+            gems.sendMessage({username, message });
+            showMessage(username, message);
+
+            ev.preventDefault();
+            return false;
+        }
+    }
+
+    function openChat(username) {
+        let chat = document.querySelector(`.chat-wrapper[data-username="${username}"]`);
+        if (chat) {
+            loggedUsers[username].chat = chat;
+            console.log(`chat for ${username} is already open!`);
+            return;
+        }
+
+        chat = document.createElement('div');
+        chat.classList += 'chat-wrapper';
+        chat.setAttribute('data-username', username);
+
+        let header = document.createElement('div');
+        header.classList += 'chat-header';
+        header.innerText += username;
+        chat.appendChild(header);
+
+        let messages = document.createElement('div');
+        messages.classList += 'chat-messages';
+        chat.appendChild(messages);
+
+        let chatInputArea = document.createElement('textarea');
+        chatInputArea.classList += 'chat-input';
+        chatInputArea.addEventListener('keydown', sendMessageHandler);
+        chat.appendChild(chatInputArea);
+
+        document.querySelector('body').appendChild(chat);
+        loggedUsers[username].chat = chat;
+    }
+
+    function showMessage(username, message, type) {
+        console.log(username, message, type);
+        if (message.type === MESSAGE_TYPE.SYSTEM || !username || !loggedUsers[username]) {
+            return;
+        }
+
+        let content = message;
+        switch (type) {
+            case MESSAGE_TYPE.IMAGE:
+                content = `<img src="data:image/jpeg;base64,${message}" height="150" />`;
+                break;
+
+            default:
+                content = message;
+                break;
+        }
+
+        let div = document.createElement('div');
+        div.classList += 'chat-message';
+        div.innerHTML = `
+            <img class="chat-message-icon" alt="${username}"/>
+            <div class="chat-message-content">${content}</div>
+            <div class="chat-message-time">${new Date().toLocaleTimeString()}</div>
+        `;
+
+        if (!loggedUsers[username].chat) {
+            openChat(username);
+        }
+
+        loggedUsers[username].chat.querySelector('.chat-messages').appendChild(div);
+    }
+
     return {
-        add, remove
+        add, remove, showMessage, loggedUsers
     };
 })();

@@ -1,3 +1,7 @@
+/*--------------------------------------------------
+ *   Chat window
+ *--------------------------------------------------*/
+
 .chat-wrapper {
     position: fixed;
     bottom: 0;
@@ -23,13 +27,25 @@
 .chat-wrapper .chat-input{
     border: 1px solid purple;
     height: 50px;
-}
-
-.chat-wrapper .chat-input textarea{
-    max-height: 100%;
-    min-height: 100%;
     min-width: 100%;
     max-width: 100%;
     box-sizing: border-box;
     resize: none;
+}
+
+/*--------------------------------------------------
+ *   Users List
+ *--------------------------------------------------*/
+
+.users-list{
+    border: 1px solid black;
+    position: fixed;
+    width: 180px;
+    height: 100vh;
+    top: 0;
+    right: 0;
+}
+
+.users-list > div{
+    border-bottom: 1px solid darkred;
 }

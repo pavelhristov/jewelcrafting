@@ -3,7 +3,7 @@ const SocketIO = require('socket.io');
 
 const app = require('./config/application.js')({});
 const server = http.Server(app);
-const io = SocketIO(server);
+const io = SocketIO(server, { upgradeTimeout: 30000 });
 
 const PORT = process.env.PORT || 3001;
 
@@ -71,7 +71,7 @@ const usersList = (function () {
     }
 
     function getSocketId(username) {
-        return sockets[username] && sockets[username].id ? sockets[username] : undefined;
+        return sockets[username] && sockets[username].id ? sockets[username].id : undefined;
     }
 
     return {
@@ -84,5 +84,5 @@ const usersList = (function () {
 
 server.listen(PORT, function () {
     console.log('listening on *:' + PORT);
-})
+});
 

@@ -1,0 +1,35 @@
+.chat-wrapper {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    border: 1px solid black;
+    width: 300px;
+}
+
+.chat-wrapper .chat-header {
+    border: 1px solid red;
+    height: 30px;
+}
+
+.chat-wrapper .chat-messages{
+    border: 1px solid green;
+    height: 300px;
+}
+
+.chat-wrapper .chat-messages .chat-message > div {
+    display: inline-block
+}
+
+.chat-wrapper .chat-input{
+    border: 1px solid purple;
+    height: 50px;
+}
+
+.chat-wrapper .chat-input textarea{
+    max-height: 100%;
+    min-height: 100%;
+    min-width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    resize: none;
+}

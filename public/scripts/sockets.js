@@ -38,7 +38,7 @@ function setSockets(username) {
         }
 
         input.value = '';
-        socket.emit('chat message', { message });
+        socket.emit('chat message', { username: 'pesho', message });
         showMessage(username, message);
     });
 
@@ -47,8 +47,30 @@ function setSockets(username) {
     });
 
     socket.on('user control', function (data) {
-        showMessage(null, data.message, MESSAGE_TYPE.SYSTEM);
+        let message = '';
+        switch (data.status) {
+            case 'connected':
+                message = data.username + ' connceted!';
+                users.add(data.username);
+                break;
+
+            case 'disconnected':
+                message = data.username + ' disconnceted!';
+                users.remove(data.username);
+                break;
+
+            case 'get users':
+                data.users.forEach(users.add);
+                break;
+
+            default:
+                break;
+        }
+
+        showMessage(null, message, MESSAGE_TYPE.SYSTEM);
     });
+
+    socket.emit('user control', { status: 'get users' });
 
     let messagesContainer = container.querySelector('.messages');
     function showMessage(username, message, type) {
@@ -70,7 +92,6 @@ function setSockets(username) {
         div.innerHTML = content;
         messagesContainer.appendChild(div);
     }
-
 
     const fileInput = container.querySelector('.input-file');
     fileInput.addEventListener('change', function (ev) {
@@ -115,3 +136,36 @@ function setSockets(username) {
         s.createStream();
     });
 }
+
+let users = (function () {
+    let loggedUsers = {};
+    let usersList = document.createElement('div');
+    usersList.classList += 'usersList';
+    document.querySelector('body').appendChild(usersList);
+
+    function add(username) {
+        if (!loggedUsers[username]) {
+            loggedUsers[username] = username;
+            let userInfo = document.createElement('div');
+            userInfo.textContent = username;
+            userInfo.setAttribute('data-username', username);
+            usersList.appendChild(userInfo);
+        }
+    };
+
+    function remove(username) {
+        if (!username) {
+            return;
+        }
+
+        delete loggedUsers[username];
+        let element = usersList.querySelector(`[data-username="${username}"]`);
+        if (element) {
+            usersList.removeChild(element);
+        }
+    }
+
+    return {
+        add, remove
+    };
+})();

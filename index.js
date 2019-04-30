@@ -1,14 +1,11 @@
-const express = require('express');
 const http = require('http');
 const SocketIO = require('socket.io');
 
-const app = express();
+const app = require('./config/application.js')({});
 const server = http.Server(app);
 const io = SocketIO(server);
 
 const PORT = process.env.PORT || 3001;
-
-app.use(express.static('./public'));
 
 app.get('/', function (req, res) {
     res.send('index.html');
@@ -16,10 +13,17 @@ app.get('/', function (req, res) {
 
 io.on('connection', function (socket) {
     let username = socket.handshake.query.name;
-    socket.broadcast.emit('user control', { message: username + ' connected' });
+    socket.broadcast.emit('user control', { username, status: 'connected' });
+    usersList.connectUser(username, socket);
 
     socket.on('chat message', function (data) {
-        socket.broadcast.emit('chat message', { username, message: data.message });
+        let socketId = usersList.getSocketId(data.username);
+        if (!socketId) {
+            socket.emit('user control', { message: username + ' is offline!' });
+            return;
+        }
+
+        socket.to(`${socketId}`).emit('chat message', { username, message: data.message });
     });
 
     socket.on('send file', function (data) {
@@ -27,13 +31,56 @@ io.on('connection', function (socket) {
     });
 
     socket.on('disconnect', function () {
-        socket.broadcast.emit('user control', { message: username + ' disconnected!' });
+        socket.broadcast.emit('user control', { username, status: 'disconnected' });
+        usersList.disconnectUser(username);
     });
 
-    socket.on('webrtc', function(data){
+    socket.on('webrtc', function (data) {
         socket.broadcast.emit('webrtc', data);
-    })
+    });
+
+    socket.on('user control', function (data) {
+        if (data.status === 'get users') {
+            let users = usersList.getLoggedUsers(username);
+            socket.emit('user control', { status: 'get users', users });
+        }
+    });
 });
+
+const usersList = (function () {
+    const sockets = {};
+
+    function connectUser(username, socket) {
+        sockets[username] = socket;
+    }
+
+    function disconnectUser(username) {
+        delete sockets[username];
+    }
+
+    function getLoggedUsers(username) {
+        let users = Object.keys(sockets);
+        if (username) {
+            var index = users.indexOf(username);
+            if (index !== -1) {
+                users.splice(index, 1);
+            }
+        }
+
+        return users || [];
+    }
+
+    function getSocketId(username) {
+        return sockets[username] && sockets[username].id ? sockets[username] : undefined;
+    }
+
+    return {
+        connectUser,
+        disconnectUser,
+        getLoggedUsers,
+        getSocketId
+    };
+})();
 
 server.listen(PORT, function () {
     console.log('listening on *:' + PORT);

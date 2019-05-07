@@ -19,7 +19,7 @@ io.on('connection', function (socket) {
     socket.on('chat message', function (data) {
         let socketId = usersList.getSocketId(data.username);
         if (!socketId) {
-            socket.emit('user control', { message: username + ' is offline!' });
+            socket.emit('user control', { message: data.username + ' is offline!' });
             return;
         }
 
@@ -38,10 +38,11 @@ io.on('connection', function (socket) {
     socket.on('webrtc', function (data) {
         let socketId = usersList.getSocketId(data.username);
         if (!socketId) {
-            socket.emit('user control', { message: username + ' is offline!' });
+            socket.emit('user control', { message: data.username + ' is offline!' });
             return;
         }
 
+        data.username = username;
         socket.to(`${socketId}`).emit('webrtc', data);
     });
 

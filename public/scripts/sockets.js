@@ -88,10 +88,6 @@ function setSockets(username, showMessage) {
 
     socket.on('webrtc', function (data) {
         if (data.type === 'setRemoteDescription') {
-            let alert = document.createElement('div');
-            alert.innerText = JSON.stringify(data);
-            container.appendChild(alert);
-
             let pc = reciever(socket, data.username);
             pc.create();
             pc.registerIceCandidate();

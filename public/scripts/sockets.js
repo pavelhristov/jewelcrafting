@@ -86,30 +86,45 @@ function setSockets(username, showMessage) {
     //     showMessage(data.username, data.file, data.type);
     // });
 
-    // socket.on('webrtc', function (data) {
-    //     if (data.type === 'setRemoteDescription') {
-    //         let pc = reciever(socket);
-    //         pc.create();
-    //         pc.registerIceCandidate();
-    //         pc.setRemoteDescription(data.desc);
-    //     }
-    // });
+    socket.on('webrtc', function (data) {
+        if (data.type === 'setRemoteDescription') {
+            let alert = document.createElement('div');
+            alert.innerText = JSON.stringify(data);
+            container.appendChild(alert);
 
-    // container.querySelector('.start-call').addEventListener('click', function (ev) {
-    //     let s = sender(socket);
-    //     s.create();
-    //     s.registerIceCandidate();
-    //     s.createStream();
-    // });
+            let pc = reciever(socket, data.username);
+            pc.create();
+            pc.registerIceCandidate();
+            pc.setRemoteDescription(data.desc);
+        }
+    });
+
+    function startCallHandler (ev) {
+        if(!ev.target || !ev.target.classList || !ev.target.classList.contains('start-call')){
+            return;
+        }
+
+        let username = ev.target.closest('.chat-wrapper').getAttribute('data-username');
+        if (users.isInCall()) {
+            return;
+        }
+
+        let s = sender(socket, username);
+        s.create();
+        s.registerIceCandidate();
+        s.createStream();
+    }
     //----------------------------------------------------------------------------
 
     return {
-        sendMessage
+        sendMessage,
+        startCallHandler
     };
 }
 
 let users = (function () {
     let loggedUsers = {};
+    let isInCall = false;
     let usersList = document.createElement('div');
     usersList.classList += 'users-list';
     document.querySelector('body').appendChild(usersList);
@@ -117,14 +132,16 @@ let users = (function () {
     bindEvents();
 
     function add(username) {
-        if (!loggedUsers[username]) {
-            loggedUsers[username] = { username };
-            let userInfo = document.createElement('div');
-            userInfo.textContent = username;
-            userInfo.setAttribute('data-username', username);
-            userInfo.classList += 'user-info';
-            usersList.appendChild(userInfo);
+        if (loggedUsers[username]) {
+            return;
         }
+
+        loggedUsers[username] = { username };
+        let userInfo = document.createElement('div');
+        userInfo.textContent = username;
+        userInfo.setAttribute('data-username', username);
+        userInfo.classList += 'user-info';
+        usersList.appendChild(userInfo);
     }
 
     function remove(username) {
@@ -163,9 +180,9 @@ let users = (function () {
             if (!message || message.length < 1) {
                 return false;
             }
-    
+
             ev.target.value = '';
-            gems.sendMessage({username, message });
+            gems.sendMessage({ username, message });
             showMessage(username, message);
 
             ev.preventDefault();
@@ -189,12 +206,18 @@ let users = (function () {
         header.classList += 'chat-header';
         header.innerText += username;
 
+        let callIcon = document.createElement('span');
+        callIcon.innerText = 'start call';
+        callIcon.classList += 'start-call';
+        callIcon.addEventListener('click', gems.startCallHandler);
+
         let close = document.createElement('span');
         close.innerText = 'X';
         close.classList += 'close-icon';
         close.addEventListener('click', closeChatHandler);
-        
+
         header.appendChild(close);
+        header.appendChild(callIcon);
         chat.appendChild(header);
 
         let messages = document.createElement('div');
@@ -210,12 +233,12 @@ let users = (function () {
         loggedUsers[username].chat = chat;
     }
 
-    function closeChatHandler(ev){
+    function closeChatHandler(ev) {
         let wrapper = ev.target.closest('.chat-wrapper');
         let username = wrapper.getAttribute('data-username');
         wrapper.parentNode.removeChild(wrapper);
 
-        delete loggedUsers[username].chat; 
+        delete loggedUsers[username].chat;
     }
 
     function showMessage(username, message, type) {
@@ -251,6 +274,7 @@ let users = (function () {
     }
 
     return {
-        add, remove, showMessage, loggedUsers
+        add, remove, showMessage, loggedUsers,
+        isInCall: () => isInCall
     };
 })();

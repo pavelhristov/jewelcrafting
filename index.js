@@ -36,7 +36,13 @@ io.on('connection', function (socket) {
     });
 
     socket.on('webrtc', function (data) {
-        socket.broadcast.emit('webrtc', data);
+        let socketId = usersList.getSocketId(data.username);
+        if (!socketId) {
+            socket.emit('user control', { message: username + ' is offline!' });
+            return;
+        }
+
+        socket.to(`${socketId}`).emit('webrtc', data);
     });
 
     socket.on('user control', function (data) {

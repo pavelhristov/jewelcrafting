@@ -24,7 +24,7 @@ function gotRemoteStream(ev) {
     remoteVideo.srcObject = ev.streams && ev.streams.length ? ev.streams[0] : ev.stream;
 }
 
-function sender(socket) {
+function sender(socket, username) {
     let _stream;
     let pc;
     return {
@@ -38,14 +38,14 @@ function sender(socket) {
                 if (data.type === 'setRemoteAnswer') {
                     pc.setRemoteDescription(data.desc);
                 }
-            })
+            });
         },
         registerIceCandidate() {
             pc.onicecandidate = function (ev) {
                 if (ev.candidate) {
-                    socket.emit('webrtc', { type: 'senderIce', candidate: ev.candidate })
+                    socket.emit('webrtc', { type: 'senderIce', username, candidate: ev.candidate });
                 }
-            }
+            };
         },
         createStream() {
             navigator.mediaDevices.getUserMedia({
@@ -59,17 +59,17 @@ function sender(socket) {
                 return pc.createOffer(offerOptions);
             }).then(function (desc) {
                 pc.setLocalDescription(desc);
-                socket.emit('webrtc', { type: 'setRemoteDescription', desc });
+                socket.emit('webrtc', { type: 'setRemoteDescription', username, desc });
             }, onError);
         },
         setRemoteDescription(desc) {
             pc.ontrack = gotRemoteStream;
             pc.setRemoteDescription(desc);
         }
-    }
+    };
 }
 
-function reciever(socket) {
+function reciever(socket, username) {
     let pc;
     return {
         create() {
@@ -78,14 +78,14 @@ function reciever(socket) {
                 if (data.type === 'senderIce') {
                     pc.addIceCandidate(data.candidate);
                 }
-            })
+            });
         },
         registerIceCandidate() {
             pc.onicecandidate = function (ev) {
                 if (ev.candidate) {
-                    socket.emit('webrtc', { type: 'recieverIce', candidate: ev.candidate })
+                    socket.emit('webrtc', { type: 'recieverIce', username, candidate: ev.candidate });
                 }
-            }
+            };
         },
         setRemoteDescription(desc) {
             pc.ontrack = gotRemoteStream;
@@ -93,9 +93,9 @@ function reciever(socket) {
             pc.createAnswer().then(function (desc) {
                 pc.setLocalDescription(desc);
 
-                socket.emit('webrtc', { type: 'setRemoteAnswer', desc });
+                socket.emit('webrtc', { type: 'setRemoteAnswer', username, desc });
             }, onError);
         }
-    }
+    };
 }
 

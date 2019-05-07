@@ -23,6 +23,7 @@ container.querySelector('button').addEventListener('click', function (ev) {
 
 function setSockets(username, showMessage) {
     const socket = io('', { query: `name=${username}` });
+    let videoWrapper;
 
     function sendMessage({ username, message }) {
         socket.emit('chat message', { username, message });
@@ -88,6 +89,13 @@ function setSockets(username, showMessage) {
 
     socket.on('webrtc', function (data) {
         if (data.type === 'setRemoteDescription') {
+            if(!videoWrapper){
+                videoWrapper = document.createElement('div');
+                videoWrapper.classList += 'video-wrapper';
+    
+                document.querySelector('body').appendChild(videoWrapper);
+            }
+
             let pc = reciever(socket, data.username);
             pc.create();
             pc.registerIceCandidate();
@@ -103,6 +111,13 @@ function setSockets(username, showMessage) {
         let username = ev.target.closest('.chat-wrapper').getAttribute('data-username');
         if (users.isInCall()) {
             return;
+        }
+
+        if(!videoWrapper){
+            videoWrapper = document.createElement('div');
+            videoWrapper.classList += 'video-wrapper';
+
+            document.querySelector('body').appendChild(videoWrapper);
         }
 
         let s = sender(socket, username);
@@ -124,6 +139,10 @@ let users = (function () {
     let usersList = document.createElement('div');
     usersList.classList += 'users-list';
     document.querySelector('body').appendChild(usersList);
+
+    let chatsList = document.createElement('div');
+    chatsList.classList += 'chats-list';
+    document.querySelector('body').appendChild(chatsList);
 
     bindEvents();
 
@@ -202,12 +221,12 @@ let users = (function () {
         header.classList += 'chat-header';
         header.innerText += username;
 
-        let callIcon = document.createElement('span');
+        let callIcon = document.createElement('button');
         callIcon.innerText = 'start call';
         callIcon.classList += 'start-call';
         callIcon.addEventListener('click', gems.startCallHandler);
 
-        let close = document.createElement('span');
+        let close = document.createElement('button');
         close.innerText = 'X';
         close.classList += 'close-icon';
         close.addEventListener('click', closeChatHandler);
@@ -225,7 +244,7 @@ let users = (function () {
         chatInputArea.addEventListener('keydown', sendMessageHandler);
         chat.appendChild(chatInputArea);
 
-        document.querySelector('body').appendChild(chat);
+        chatsList.appendChild(chat);
         loggedUsers[username].chat = chat;
     }
 

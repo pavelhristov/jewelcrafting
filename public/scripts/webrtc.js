@@ -1,7 +1,5 @@
 'use strict';
 
-const remoteVideo = document.getElementById('remoteVideo');
-const localVideo = document.getElementById('localVideo');
 const offerOptions = { offerToReceiveAudio: 1, offerToReceiveVideo: 1 };
 
 // https://gist.github.com/sagivo/3a4b2f2c7ac6e1b5267c2f1f59ac6c6b list of open stun/turn servers
@@ -21,6 +19,16 @@ function onError(error) {
 }
 
 function gotRemoteStream(ev) {
+    let wrapper = document.querySelector('.video-wrapper');
+    let remoteVideo = wrapper.querySelector('.remote-video');
+    if (!remoteVideo) {
+        remoteVideo = document.createElement('video');
+        remoteVideo.classList += 'remote-video';
+        remoteVideo.autoplay = true;
+        remoteVideo.playsinline = true;
+        wrapper.appendChild(remoteVideo);
+    }
+
     remoteVideo.srcObject = ev.streams && ev.streams.length ? ev.streams[0] : ev.stream;
 }
 
@@ -53,6 +61,13 @@ function sender(socket, username) {
                 video: true
             }).then(function (stream) {
                 _stream = stream;
+                let wrapper = document.querySelector('.video-wrapper');
+                let localVideo = document.createElement('video');
+                localVideo.classList += 'local-video';
+                localVideo.autoplay = true;
+                localVideo.playsinline = true;
+                localVideo.muted = true;
+                wrapper.appendChild(localVideo);
                 localVideo.srcObject = stream;
 
                 pc.addStream(_stream);

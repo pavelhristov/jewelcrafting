@@ -2,10 +2,18 @@
  *   Chat window
  *--------------------------------------------------*/
 
-.chat-wrapper {
+.chats-list {
+    overflow-x: auto;
     position: fixed;
     bottom: 0;
     left: 0;
+    max-width: calc(100% - 180px);
+    white-space: nowrap;
+    z-index: 100;
+}
+
+.chat-wrapper {
+    display: inline-block;
     border: 1px solid black;
     width: 300px;
 }
@@ -53,4 +61,27 @@
 
     .users-list > div{
         border-bottom: 1px solid darkred;
+    }
+
+/*--------------------------------------------------
+ *   Video
+ *--------------------------------------------------*/
+
+.video-wrapper {
+    border: 1px solid crimson;
+    position: relative;
+    width: calc(100% - 180px);
+    background-color: #666;
+}
+
+    .video-wrapper .local-video{
+        position: absolute;
+        left: 10px;
+        top: 10px;
+        width: 150px;
+    }
+
+    .video-wrapper .remote-video{
+        margin: auto;
+        display: block;
     }

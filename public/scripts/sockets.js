@@ -1,4 +1,4 @@
-/* globals console, io, sender, reciever */
+/* globals console, io, sender, reciever, handshake */
 
 'use strict';
 
@@ -24,6 +24,7 @@ container.querySelector('button').addEventListener('click', function (ev) {
 function setSockets(username, showMessage) {
     const socket = io('', { query: `name=${username}` });
     let videoWrapper;
+    handshake.init(socket);
 
     function sendMessage({ username, message }) {
         socket.emit('chat message', { username, message });

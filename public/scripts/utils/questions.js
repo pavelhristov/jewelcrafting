@@ -14,7 +14,7 @@ let questions = (function () {
 
     document.querySelector('body').appendChild(wrapper);
 
-    function ask(theme, { header, text, duration, onOk, onCancel, onIgnore, isPermanent }) {
+    function ask(theme, { header, text, duration, onOk, onCancel, onIgnore, onTimeout, isPermanent }) {
         if (askedQuestions[theme]) {
             console.warn(`question with theme ${theme} has already been asked`);
             return;
@@ -49,6 +49,7 @@ let questions = (function () {
             result.timer = setTimeout(function () {
                 wrapper.removeChild(question);
                 delete askedQuestions[theme];
+                onTimeout();
             }, duration * 1000);
         }
 

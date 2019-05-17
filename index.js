@@ -52,6 +52,17 @@ io.on('connection', function (socket) {
             socket.emit('user control', { status: 'get users', users });
         }
     });
+
+    socket.on('handshake', function(data){
+        let socketId = usersList.getSocketId(data.to);
+        if (!socketId) {
+            socket.emit('user control', { message: data.to + ' is offline!' });
+            return;
+        }
+
+        data.from = username;
+        socket.to(`${socketId}`).emit('handshake', data);
+    });
 });
 
 const usersList = (function () {

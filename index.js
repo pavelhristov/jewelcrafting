@@ -1,8 +1,8 @@
-const http = require('http');
 const SocketIO = require('socket.io');
 
 const app = require('./config/application.js')({});
-const server = http.Server(app);
+const server = require('./config/server')({ app });
+
 const io = SocketIO(server, { upgradeTimeout: 30000 });
 
 const PORT = process.env.PORT || 3001;
@@ -53,7 +53,7 @@ io.on('connection', function (socket) {
         }
     });
 
-    socket.on('handshake', function(data){
+    socket.on('handshake', function (data) {
         let socketId = usersList.getSocketId(data.to);
         if (!socketId) {
             socket.emit('user control', { message: data.to + ' is offline!' });

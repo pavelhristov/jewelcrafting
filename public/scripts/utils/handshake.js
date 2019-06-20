@@ -9,14 +9,7 @@ let handshake = (function () {
 
         socket.on('handshake', function (data) {
             if (data.type === 'asking') {
-                questions.ask(data.theme, {
-                    header: `Incoming ${data.theme}`,
-                    text: `from ${data.from}`,
-                    onOk: () => { respond(data.theme, data.from, data.to, 'Ok'); },
-                    onCancel: () => { respond(data.theme, data.from, data.to, 'Cancel'); },
-                    onIgnore: () => { respond(data.theme, data.from, data.to, 'Ignore'); },
-                    onTimeout: () => { respond(data.theme, data.from, data.to, 'TimedOut'); }
-                });
+                requestCall(data);
             } else if (data.type === 'answering') {
                 console.log('answer', data);
                 queued[data.from][data.theme](data.response);
@@ -41,6 +34,19 @@ let handshake = (function () {
 
         queued[username][theme] = onReadyHandler;
         socket.emit('handshake', { theme, to: username, type: 'asking' });
+    }
+
+    function requestCall(data) {
+        questions.ask(data.theme, {
+            header: `Incoming ${data.theme}`,
+            text: `from ${data.from}`,
+            actions: [
+                { title: 'Ok', handler: () => { respond(data.theme, data.from, data.to, 'Ok'); } },
+                { title: 'Cancel', handler: () => { respond(data.theme, data.from, data.to, 'Cancel'); } },
+                { title: 'Ignore', handler: () => { respond(data.theme, data.from, data.to, 'Ignore'); } }
+            ],
+            onTimeout: () => { respond(data.theme, data.from, data.to, 'TimedOut'); }
+        });
     }
 
     return {

@@ -14,7 +14,7 @@ let questions = (function () {
 
     document.querySelector('body').appendChild(wrapper);
 
-    function ask(theme, { header, text, duration, onOk, onCancel, onIgnore, onTimeout, isPermanent }) {
+    function ask(theme, { header, text, duration, actions, onTimeout, isPermanent }) {
         if (askedQuestions[theme]) {
             console.warn(`question with theme ${theme} has already been asked`);
             return;
@@ -33,9 +33,9 @@ let questions = (function () {
         question.appendChild(_text);
 
         let buttons = document.createElement('div');
-        buttons.appendChild(createButton('Ok', onOk));
-        buttons.appendChild(createButton('Cancel', onCancel));
-        buttons.appendChild(createButton('Ignore', onIgnore));
+        for (const key in actions) {
+            buttons.appendChild(createButton(actions[key].title, actions[key].handler));
+        }
 
         question.appendChild(buttons);
         wrapper.appendChild(question);

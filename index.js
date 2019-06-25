@@ -12,43 +12,46 @@ app.get('/', function (req, res) {
 });
 
 io.on('connection', function (socket) {
-    let username = socket.handshake.query.name;
-    socket.broadcast.emit('user control', { username, status: 'connected' });
-    usersList.connectUser(username, socket);
+    let user = {
+        name: socket.handshake.query.name,
+        id: socket.handshake.query.id
+    };
+    socket.broadcast.emit('user control', { user, status: 'connected' });
+    usersList.connectUser(user, socket);
 
     socket.on('chat message', function (data) {
-        let socketId = usersList.getSocketId(data.username);
+        let socketId = usersList.getSocketId(data.user.id);
         if (!socketId) {
-            socket.emit('user control', { message: data.username + ' is offline!' });
+            socket.emit('user control', { message: data.user.name + ' is offline!' });
             return;
         }
 
-        socket.to(`${socketId}`).emit('chat message', { username, message: data.message });
+        socket.to(`${socketId}`).emit('chat message', { user, message: data.message });
     });
 
     socket.on('send file', function (data) {
-        socket.broadcast.emit('send file', { username, file: data.file, type: data.type });
+        socket.broadcast.emit('send file', { user, file: data.file, type: data.type });
     });
 
     socket.on('disconnect', function () {
-        socket.broadcast.emit('user control', { username, status: 'disconnected' });
-        usersList.disconnectUser(username);
+        socket.broadcast.emit('user control', { user, status: 'disconnected' });
+        usersList.disconnectUser(user.id);
     });
 
     socket.on('webrtc', function (data) {
-        let socketId = usersList.getSocketId(data.username);
+        let socketId = usersList.getSocketId(data.user.id);
         if (!socketId) {
-            socket.emit('user control', { message: data.username + ' is offline!' });
+            socket.emit('user control', { message: data.user.name + ' is offline!' });
             return;
         }
 
-        data.username = username;
+        data.username = user;
         socket.to(`${socketId}`).emit('webrtc', data);
     });
 
     socket.on('user control', function (data) {
         if (data.status === 'get users') {
-            let users = usersList.getLoggedUsers(username);
+            let users = usersList.getLoggedUsers(user.id);
             socket.emit('user control', { status: 'get users', users });
         }
     });
@@ -60,7 +63,7 @@ io.on('connection', function (socket) {
             return;
         }
 
-        data.from = username;
+        data.from = user;
         socket.to(`${socketId}`).emit('handshake', data);
     });
 });
@@ -68,28 +71,23 @@ io.on('connection', function (socket) {
 const usersList = (function () {
     const sockets = {};
 
-    function connectUser(username, socket) {
-        sockets[username] = socket;
+    function connectUser(user, socket) {
+        sockets[user.id] = {
+            user,
+            socket
+        };
     }
 
-    function disconnectUser(username) {
-        delete sockets[username];
+    function disconnectUser(userId) {
+        delete sockets[userId];
     }
 
-    function getLoggedUsers(username) {
-        let users = Object.keys(sockets);
-        if (username) {
-            var index = users.indexOf(username);
-            if (index !== -1) {
-                users.splice(index, 1);
-            }
-        }
-
-        return users || [];
+    function getLoggedUsers(userId) {
+        return Object.entries(sockets).filter(([k, v]) => k !== userId).map(([k, v]) => v.user);
     }
 
-    function getSocketId(username) {
-        return sockets[username] && sockets[username].id ? sockets[username].id : undefined;
+    function getSocketId(userId) {
+        return sockets[userId] && sockets[userId].socket && sockets[userId].socket.id ? sockets[userId].socket.id : undefined;
     }
 
     return {

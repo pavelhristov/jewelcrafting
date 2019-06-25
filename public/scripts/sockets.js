@@ -1,4 +1,4 @@
-/* globals chat */
+/* globals io, guid, chat */
 
 'use strict';
 
@@ -13,7 +13,12 @@ container.querySelector('button').addEventListener('click', function (ev) {
     }
 
     container.innerHTML = ``;
-    chat(username);
+    let user  = {
+        name: username,
+        id: guid()
+    };
+    
+    chat(io, user);
 });
 
     //----------------------------------------------------------------------------

@@ -1,35 +1,36 @@
-/* globals io, handshake, sender, reciever */
+/* globals handshake, sender, reciever */
 
 const MESSAGE_TYPE = {
     SYSTEM: 'system',
     IMAGE: 'image'
 };
 
-function chat (username) {
+function chat(io, user) {
     //-------------------------------------------------------------------------------
-    const socket = io('', { query: `name=${username}` });
+    user.isCurrentUser = true;
+    const socket = io('', { query: `name=${user.name}&id=${user.id}` });
     let videoWrapper;
     handshake.init(socket);
 
-    function sendMessage({ username, message }) {
-        socket.emit('chat message', { username, message });
+    function sendMessage({ user, message }) {
+        socket.emit('chat message', { user, message });
     }
 
     socket.on('chat message', function (data) {
-        showMessage(data.username, data.message, data.type);
+        showMessage(data.user.id, data.message, data.type);
     });
 
     socket.on('user control', function (data) {
         let message = '';
         switch (data.status) {
             case 'connected':
-                message = data.username + ' connceted!';
-                add(data.username);
+                message = data.user.name + ' connceted!';
+                add(data.user);
                 break;
 
             case 'disconnected':
-                message = data.username + ' disconnceted!';
-                remove(data.username);
+                message = data.user.name + ' disconnceted!';
+                remove(data.user.id);
                 break;
 
             case 'get users':
@@ -44,13 +45,13 @@ function chat (username) {
     });
 
     socket.emit('user control', { status: 'get users' });
-    
+
     socket.on('webrtc', function (data) {
         if (data.type === 'setRemoteDescription') {
-            if(!videoWrapper){
+            if (!videoWrapper) {
                 videoWrapper = document.createElement('div');
                 videoWrapper.classList += 'video-wrapper';
-    
+
                 document.querySelector('body').appendChild(videoWrapper);
             }
 
@@ -61,8 +62,8 @@ function chat (username) {
         }
     });
 
-    function startCallHandler (ev) {
-        if(!ev.target || !ev.target.classList || !ev.target.classList.contains('start-call')){
+    function startCallHandler(ev) {
+        if (!ev.target || !ev.target.classList || !ev.target.classList.contains('start-call')) {
             return;
         }
 
@@ -71,7 +72,7 @@ function chat (username) {
             return;
         }
 
-        if(!videoWrapper){
+        if (!videoWrapper) {
             videoWrapper = document.createElement('div');
             videoWrapper.classList += 'video-wrapper';
 
@@ -85,9 +86,6 @@ function chat (username) {
     }
     //----------------------------------------------------------------------------
 
-
-
-
     let loggedUsers = {};
     let isInCall = false;
     let usersList = document.createElement('div');
@@ -100,29 +98,30 @@ function chat (username) {
 
     bindEvents();
 
-    function add(username) {
-        if (loggedUsers[username]) {
+    function add(user) {
+        if (loggedUsers[user.id]) {
             return;
         }
 
-        loggedUsers[username] = { username };
+        loggedUsers[user.id] = { user };
         let userInfo = document.createElement('div');
-        userInfo.textContent = username;
-        userInfo.setAttribute('data-username', username);
+        userInfo.textContent = user.name;
+        userInfo.setAttribute('data-username', user.name);
+        userInfo.setAttribute('data-id', user.id);
         userInfo.classList += 'user-info';
         usersList.appendChild(userInfo);
     }
 
-    function remove(username) {
-        if (!username) {
+    function remove(userId) {
+        if (!userId) {
             return;
         }
 
-        delete loggedUsers[username];
-        let element = usersList.querySelector(`[data-username="${username}"]`);
-        if (element) {
-            usersList.removeChild(element);
+        if (loggedUsers[userId].chat) {
+            loggedUsers[userId].chat.close();
         }
+
+        delete loggedUsers[userId];
     }
 
     function bindEvents() {
@@ -132,48 +131,49 @@ function chat (username) {
             }
 
             if (ev.target.classList.contains('user-info')) {
-                let username = ev.target.getAttribute('data-username');
-                openChat(username);
+                let userId = ev.target.getAttribute('data-id');
+                openChat(userId);
             }
         });
     }
 
-    function sendMessageHandler(ev) {
-        if (!ev || !ev.target || !ev.target.classList) {
+    function openChat(userId) {
+        if (loggedUsers[userId].chat) {
+            console.log(`chat for ${loggedUsers[userId].user.name} is already open!`);
             return;
         }
 
-        if (ev.keyCode === 13 && ev.target.classList.contains('chat-input')) {
-            let username = ev.target.closest('.chat-wrapper').getAttribute('data-username');
-            let message = ev.target.value;
-            if (!message || message.length < 1) {
-                return false;
-            }
-
-            ev.target.value = '';
-            sendMessage({ username, message });
-            showMessage(username, message);
-
-            ev.preventDefault();
-            return false;
-        }
+        let chat = chatWindow(loggedUsers[userId].user, startCallHandler, sendMessage, function () { delete loggedUsers[userId].chat; });
+        chatsList.appendChild(chat.ui);
+        loggedUsers[userId].chat = chat;
     }
 
-    function openChat(username) {
-        let chat = document.querySelector(`.chat-wrapper[data-username="${username}"]`);
-        if (chat) {
-            loggedUsers[username].chat = chat;
-            console.log(`chat for ${username} is already open!`);
+    function showMessage(userId, message, type) {
+        if (message.type === MESSAGE_TYPE.SYSTEM || !userId || !loggedUsers[userId]) {
             return;
         }
 
-        chat = document.createElement('div');
+        if (!loggedUsers[userId].chat) {
+            openChat(userId);
+        }
+
+        let date = new Date().toLocaleTimeString();
+        loggedUsers[userId].chat.showMessage({ user: loggedUsers[userId].user, message, date, type });
+    }
+}
+
+function chatWindow(user, startCallHandler, sendMessage, onClose) {
+    const chat = buildUI(user);
+
+    function buildUI(user) {
+        let chat = document.createElement('div');
         chat.classList += 'chat-wrapper';
-        chat.setAttribute('data-username', username);
+        chat.setAttribute('data-username', user.name);
+        chat.setAttribute('data-id', user.id);
 
         let header = document.createElement('div');
         header.classList += 'chat-header';
-        header.innerText += username;
+        header.innerText += user.name;
 
         let callIcon = document.createElement('button');
         callIcon.innerText = 'start call';
@@ -197,48 +197,58 @@ function chat (username) {
         chatInputArea.classList += 'chat-input';
         chatInputArea.addEventListener('keydown', sendMessageHandler);
         chat.appendChild(chatInputArea);
-
-        chatsList.appendChild(chat);
-        loggedUsers[username].chat = chat;
+        return chat;
     }
 
     function closeChatHandler(ev) {
-        let wrapper = ev.target.closest('.chat-wrapper');
-        let username = wrapper.getAttribute('data-username');
-        wrapper.parentNode.removeChild(wrapper);
-
-        delete loggedUsers[username].chat;
+        chat.parentElement.removeChild(chat);
+        if (onClose || typeof onCancel === 'function') {
+            onClose();
+        }
     }
 
-    function showMessage(username, message, type) {
-        console.log(username, message, type);
-        if (message.type === MESSAGE_TYPE.SYSTEM || !username || !loggedUsers[username]) {
+    function sendMessageHandler(ev) {
+        if (!ev || !ev.target || !ev.target.classList) {
             return;
         }
 
-        let content = message;
-        switch (type) {
-            case MESSAGE_TYPE.IMAGE:
-                content = `<img src="data:image/jpeg;base64,${message}" height="150" />`;
-                break;
+        if (ev.keyCode === 13 && ev.target.classList.contains('chat-input')) {
+            let message = ev.target.value;
+            if (!message || message.length < 1) {
+                return false;
+            }
 
-            default:
-                content = message;
-                break;
+            ev.target.value = '';
+            let date = new Date().toLocaleTimeString();
+            sendMessage({ user, message, date });
+            showMessage({ user, message, date });
+
+            ev.preventDefault();
+            return false;
+        }
+    }
+
+    function showMessage({ user, message, date, type }) {
+        if (type === MESSAGE_TYPE.IMAGE) {
+            content = `<img src="data:image/jpeg;base64,${content}" height="150" />`;
         }
 
         let div = document.createElement('div');
         div.classList += 'chat-message';
-        div.innerHTML = `
-            <img class="chat-message-icon" alt="${username}"/>
-            <div class="chat-message-content">${content}</div>
-            <div class="chat-message-time">${new Date().toLocaleTimeString()}</div>
+        let content = `
+            <div class="chat-message-content">${message}</div>
+            <div class="chat-message-time">${date}</div>
         `;
 
-        if (!loggedUsers[username].chat) {
-            openChat(username);
+        if (user.isCurrentUser) {
+            content += `<img class="chat-message-icon" src="${user.image | ''}" alt="${user.name}"/>`;
+        } else {
+            content = `<img class="chat-message-icon" src="${user.image | ''}" alt="${user.name}"/>` + content;
         }
 
-        loggedUsers[username].chat.querySelector('.chat-messages').appendChild(div);
+        div.innerHTML = content;
+        chat.querySelector('.chat-messages').appendChild(div);
     }
+
+    return { ui: chat, showMessage, close: closeChatHandler };
 }

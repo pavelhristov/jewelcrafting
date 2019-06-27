@@ -55,19 +55,14 @@ function chat(io, user) {
                 document.querySelector('body').appendChild(videoWrapper);
             }
 
-            let pc = reciever(socket, data.username);
+            let pc = reciever(socket, data.userId);
             pc.create();
             pc.registerIceCandidate();
             pc.setRemoteDescription(data.desc);
         }
     });
 
-    function startCallHandler(ev) {
-        if (!ev.target || !ev.target.classList || !ev.target.classList.contains('start-call')) {
-            return;
-        }
-
-        let username = ev.target.closest('.chat-wrapper').getAttribute('data-username');
+    function startCall(user) {
         if (isInCall) {
             return;
         }
@@ -79,7 +74,7 @@ function chat(io, user) {
             document.querySelector('body').appendChild(videoWrapper);
         }
 
-        let s = sender(socket, username);
+        let s = sender(socket, user.id);
         s.create();
         s.registerIceCandidate();
         s.createStream();
@@ -143,7 +138,7 @@ function chat(io, user) {
             return;
         }
 
-        let chat = chatWindow(loggedUsers[userId].user, startCallHandler, sendMessage, function () { delete loggedUsers[userId].chat; });
+        let chat = chatWindow(loggedUsers[userId].user, sendMessage, startCall, function () { delete loggedUsers[userId].chat; });
         chatsList.appendChild(chat.ui);
         loggedUsers[userId].chat = chat;
     }
@@ -162,7 +157,7 @@ function chat(io, user) {
     }
 }
 
-function chatWindow(user, startCallHandler, sendMessage, onClose) {
+function chatWindow(user, sendMessage, startCall, onClose) {
     const chat = buildUI(user);
 
     function buildUI(user) {
@@ -178,7 +173,11 @@ function chatWindow(user, startCallHandler, sendMessage, onClose) {
         let callIcon = document.createElement('button');
         callIcon.innerText = 'start call';
         callIcon.classList += 'start-call';
-        callIcon.addEventListener('click', startCallHandler);
+        callIcon.addEventListener('click', handshake.requestHandshake.bind(callIcon, 'call', user, function (response) { 
+            if(response === 'Ok'){
+                startCall(user);
+            }
+         }));
 
         let close = document.createElement('button');
         close.innerText = 'X';

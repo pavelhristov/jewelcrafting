@@ -22,18 +22,18 @@ let handshake = (function () {
         socket.emit('handshake', { theme, from, to, response, type: 'answering' });
     }
 
-    function requestHandshake(theme, username, onReadyHandler) {
-        if (!queued[username]) {
-            queued[username] = {};
+    function requestHandshake(theme, user, onReadyHandler) {
+        if (!queued[user.id]) {
+            queued[user.id] = {};
         }
 
-        if (queued[username][theme]) {
-            console.log(`handshake for ${theme} with ${username} has already been queued`);
+        if (queued[user.id][theme]) {
+            console.log(`handshake for ${theme} with ${user.id}:${user.name} has already been queued`);
             return;
         }
 
-        queued[username][theme] = onReadyHandler;
-        socket.emit('handshake', { theme, to: username, type: 'asking' });
+        queued[user.id][theme] = onReadyHandler;
+        socket.emit('handshake', { theme, to: user.id, type: 'asking' });
     }
 
     function requestCall(data) {
@@ -42,8 +42,7 @@ let handshake = (function () {
             text: `from ${data.from}`,
             actions: [
                 { title: 'Ok', handler: () => { respond(data.theme, data.from, data.to, 'Ok'); } },
-                { title: 'Cancel', handler: () => { respond(data.theme, data.from, data.to, 'Cancel'); } },
-                { title: 'Ignore', handler: () => { respond(data.theme, data.from, data.to, 'Ignore'); } }
+                { title: 'Cancel', handler: () => { respond(data.theme, data.from, data.to, 'Cancel'); } }
             ],
             onTimeout: () => { respond(data.theme, data.from, data.to, 'TimedOut'); }
         });

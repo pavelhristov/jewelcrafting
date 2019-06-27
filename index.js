@@ -39,13 +39,13 @@ io.on('connection', function (socket) {
     });
 
     socket.on('webrtc', function (data) {
-        let socketId = usersList.getSocketId(data.user.id);
+        let socketId = usersList.getSocketId(data.userId);
         if (!socketId) {
             socket.emit('user control', { message: data.user.name + ' is offline!' });
             return;
         }
 
-        data.username = user;
+        data.userId = user.id;
         socket.to(`${socketId}`).emit('webrtc', data);
     });
 
@@ -63,7 +63,7 @@ io.on('connection', function (socket) {
             return;
         }
 
-        data.from = user;
+        data.from = user.id;
         socket.to(`${socketId}`).emit('handshake', data);
     });
 });

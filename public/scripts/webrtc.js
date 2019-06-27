@@ -32,7 +32,7 @@ function gotRemoteStream(ev) {
     remoteVideo.srcObject = ev.streams && ev.streams.length ? ev.streams[0] : ev.stream;
 }
 
-function sender(socket, username) {
+function sender(socket, userId) {
     let _stream;
     let pc;
     return {
@@ -51,7 +51,7 @@ function sender(socket, username) {
         registerIceCandidate() {
             pc.onicecandidate = function (ev) {
                 if (ev.candidate) {
-                    socket.emit('webrtc', { type: 'senderIce', username, candidate: ev.candidate });
+                    socket.emit('webrtc', { type: 'senderIce', userId, candidate: ev.candidate });
                 }
             };
         },
@@ -74,7 +74,7 @@ function sender(socket, username) {
                 return pc.createOffer(offerOptions);
             }).then(function (desc) {
                 pc.setLocalDescription(desc);
-                socket.emit('webrtc', { type: 'setRemoteDescription', username, desc });
+                socket.emit('webrtc', { type: 'setRemoteDescription', userId, desc });
             }, onError);
         },
         setRemoteDescription(desc) {
@@ -84,7 +84,7 @@ function sender(socket, username) {
     };
 }
 
-function reciever(socket, username) {
+function reciever(socket, userId) {
     let pc;
     return {
         create() {
@@ -98,7 +98,7 @@ function reciever(socket, username) {
         registerIceCandidate() {
             pc.onicecandidate = function (ev) {
                 if (ev.candidate) {
-                    socket.emit('webrtc', { type: 'recieverIce', username, candidate: ev.candidate });
+                    socket.emit('webrtc', { type: 'recieverIce', userId, candidate: ev.candidate });
                 }
             };
         },
@@ -108,7 +108,7 @@ function reciever(socket, username) {
             pc.createAnswer().then(function (desc) {
                 pc.setLocalDescription(desc);
 
-                socket.emit('webrtc', { type: 'setRemoteAnswer', username, desc });
+                socket.emit('webrtc', { type: 'setRemoteAnswer', userId, desc });
             }, onError);
         }
     };

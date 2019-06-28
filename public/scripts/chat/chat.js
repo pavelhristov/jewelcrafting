@@ -1,4 +1,4 @@
-/* globals handshake, sender, reciever, chatWindow */
+/* globals handshake, p2p, chatWindow */
 
 const MESSAGE_TYPE = {
     SYSTEM: 'system',
@@ -45,39 +45,14 @@ function chat(io, user) {
     });
 
     socket.emit('user control', { status: 'get users' });
-
-    socket.on('webrtc', function (data) {
-        if (data.type === 'setRemoteDescription') {
-            if (!videoWrapper) {
-                videoWrapper = document.createElement('div');
-                videoWrapper.classList += 'video-wrapper';
-
-                document.querySelector('body').appendChild(videoWrapper);
-            }
-
-            let pc = reciever(socket, data.userId);
-            pc.create();
-            pc.registerIceCandidate();
-            pc.setRemoteDescription(data.desc);
-        }
-    });
+    const peer = p2p(socket);
 
     function startCall(user) {
         if (isInCall) {
             return;
         }
 
-        if (!videoWrapper) {
-            videoWrapper = document.createElement('div');
-            videoWrapper.classList += 'video-wrapper';
-
-            document.querySelector('body').appendChild(videoWrapper);
-        }
-
-        let s = sender(socket, user.id);
-        s.create();
-        s.registerIceCandidate();
-        s.createStream();
+        peer.startCall(user.id, true);
     }
     //----------------------------------------------------------------------------
 

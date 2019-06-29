@@ -1,6 +1,5 @@
 'use strict';
 // TODO: 
-//  - handle 'is allready in call' and 'disconnect' cases.
 //  - audio only calls
 //  - refactor and abstract UI logic
 
@@ -14,10 +13,12 @@
  * Creates object to handle Peer-To-Peer audio and video calls.
  * 
  * @param {Object} socket SocketIO socket or another object for communication with server supporting the same standart for 'on' and 'emit' methods
+ * @param {Function} [onCallStart] Callback function that will be called when call starts. Id of calling/called user will be provided as first argument. 
+ * @param {Function} [onClose] Callback function that will be called when call is closed.   
  * @param {RTCConfiguration} [webrtcConfig] RTCPeerConnection configuration. If not specified public stun and turn servers will be used.
  * @returns {PeerToPeer} object 
  */
-function p2p(socket, webrtcConfig) {
+function p2p(socket, onCallStart, onClose, webrtcConfig) {
     // https://gist.github.com/sagivo/3a4b2f2c7ac6e1b5267c2f1f59ac6c6b list of open stun/turn servers
     const rtcConfig = webrtcConfig || {
         iceServers: [
@@ -81,6 +82,10 @@ function p2p(socket, webrtcConfig) {
 
             config = {};
         }
+
+        if(onClose || typeof onClose === 'function'){
+            onClose();
+        }
     }
 
     /**
@@ -96,6 +101,10 @@ function p2p(socket, webrtcConfig) {
      * @returns {Promise} Promise that handles initialization of audio (and video) stream
      */
     function create(userId, isVideo) {
+        if(onCallStart || typeof onCallStart === 'function'){
+            onCallStart(userId);
+        }
+
         pc = new RTCPeerConnection(rtcConfig);
         pc.ontrack = gotRemoteStream;
         config.userId = userId;

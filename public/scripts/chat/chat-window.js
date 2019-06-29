@@ -1,6 +1,6 @@
-/* globals handshake, MESSAGE_TYPE */
+/* globals MESSAGE_TYPE */
 
-function chatWindow(user, sendMessage, startCall, onClose) {
+function chatWindow(user, sendMessage, requestCall, onClose) {
     const chat = buildUI(user);
 
     function buildUI(user) {
@@ -16,11 +16,7 @@ function chatWindow(user, sendMessage, startCall, onClose) {
         let callIcon = document.createElement('button');
         callIcon.innerText = 'start call';
         callIcon.classList += 'start-call';
-        callIcon.addEventListener('click', handshake.requestHandshake.bind(callIcon, 'call', user, function (response) { 
-            if(response === 'Ok'){
-                startCall(user);
-            }
-         }));
+        callIcon.addEventListener('click', requestCall.bind(callIcon, user, 'video'));
 
         let close = document.createElement('button');
         close.innerText = 'X';

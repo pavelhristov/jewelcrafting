@@ -41,7 +41,7 @@ io.on('connection', function (socket) {
     socket.on('webrtc', function (data) {
         let socketId = usersList.getSocketId(data.userId);
         if (!socketId) {
-            socket.emit('user control', { message: data.user.name + ' is offline!' });
+            socket.emit('user control', { message: data.userId + ' is offline!' });
             return;
         }
 
@@ -57,13 +57,13 @@ io.on('connection', function (socket) {
     });
 
     socket.on('handshake', function (data) {
-        let socketId = usersList.getSocketId(data.to);
+        let socketId = usersList.getSocketId(data.to.id);
         if (!socketId) {
-            socket.emit('user control', { message: data.to + ' is offline!' });
+            socket.emit('user control', { message: data.to.name + ' is offline!' });
             return;
         }
 
-        data.from = user.id;
+        data.from = user;
         socket.to(`${socketId}`).emit('handshake', data);
     });
 });
@@ -83,7 +83,7 @@ const usersList = (function () {
     }
 
     function getLoggedUsers(userId) {
-        return Object.entries(sockets).filter(([k, v]) => k !== userId).map(([k, v]) => v.user);
+        return Object.entries(sockets).filter(([k,v]) => k!== userId).map(([k,v]) => v.user);
     }
 
     function getSocketId(userId) {

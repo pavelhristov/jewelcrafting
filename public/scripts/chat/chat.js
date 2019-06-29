@@ -1,16 +1,23 @@
 /* globals handshake, p2p, chatWindow */
 
+// TODO: move constants
 const MESSAGE_TYPE = {
     SYSTEM: 'system',
     IMAGE: 'image'
 };
 
+const CALL_REQUEST_RESPONSE = {
+    ACCEPTED: 'accepted',
+    DECLINED: 'declined',
+    NOT_AVAILABLE: 'not-available',
+    TIMED_OUT: 'timed-out'
+};
+
 function chat(io, user) {
     //-------------------------------------------------------------------------------
-    user.isCurrentUser = true;
     const socket = io('', { query: `name=${user.name}&id=${user.id}` });
-    let videoWrapper;
-    handshake.init(socket);
+    let callInfo = { isInCall: false, isCalling: false };
+    handshake.init(socket, (requestTheme) => requestTheme === 'call' ? !callInfo.isInCall && !callInfo.isCalling : false);
 
     function sendMessage({ user, message }) {
         socket.emit('chat message', { user, message });
@@ -31,6 +38,11 @@ function chat(io, user) {
             case 'disconnected':
                 message = data.user.name + ' disconnceted!';
                 remove(data.user.id);
+                if (callInfo.isInCall && callInfo.userId === data.user.id) {
+                    peer.close();
+                    notify(`${data.user.name} was disconnected and the call was closed!`);
+                }
+
                 break;
 
             case 'get users':
@@ -45,19 +57,52 @@ function chat(io, user) {
     });
 
     socket.emit('user control', { status: 'get users' });
-    const peer = p2p(socket);
+    const peer = p2p(socket, function (userId) {
+        callInfo.isInCall = true;
+        callInfo.userId = userId;
+    },
+        function () {
+            callInfo.isInCall = false;
+            callInfo.userId = null;
+        });
 
-    function startCall(user) {
-        if (isInCall) {
+    function requestCall(user, callType) {
+        if (callInfo.isInCall) {
+            notify('You are already in call!');
             return;
         }
 
-        peer.startCall(user.id, true);
+        if (callInfo.isCalling) {
+            notify('You are currently calling!');
+            return;
+        }
+
+        callInfo.isCalling = true;
+        handshake.requestHandshake('call', user, function (response) {
+            switch (response) {
+                case CALL_REQUEST_RESPONSE.ACCEPTED:
+                    peer.startCall(user.id, true);
+                    break;
+                case CALL_REQUEST_RESPONSE.DECLINED:
+                    notify(`${user.name} rejected the call request!`);
+                    break;
+                case CALL_REQUEST_RESPONSE.TIMED_OUT:
+                    notify(`Calling ${user.name} timed out!`);
+                    break;
+                case CALL_REQUEST_RESPONSE.NOT_AVAILABLE:
+                    notify(`${user.name} was not available to answer the call!`);
+                    break;
+                default:
+                    notify(`${user.name} was not available to answer the call!`);
+                    break;
+            }
+
+            callInfo.isCalling = false;
+        });
     }
     //----------------------------------------------------------------------------
 
     let loggedUsers = {};
-    let isInCall = false;
     let usersList = document.createElement('div');
     usersList.classList += 'users-list';
     document.querySelector('body').appendChild(usersList);
@@ -67,6 +112,11 @@ function chat(io, user) {
     document.querySelector('body').appendChild(chatsList);
 
     bindEvents();
+
+    // mockup until notifications are a thing
+    function notify(message) {
+        console.warn(message);
+    }
 
     function add(user) {
         if (loggedUsers[user.id]) {
@@ -92,6 +142,10 @@ function chat(io, user) {
         }
 
         delete loggedUsers[userId];
+        let element = usersList.querySelector(`[data-id="${userId}"]`);
+        if (element) {
+            usersList.removeChild(element);
+        }
     }
 
     function bindEvents() {
@@ -113,7 +167,7 @@ function chat(io, user) {
             return;
         }
 
-        let chat = chatWindow(loggedUsers[userId].user, sendMessage, startCall, function () { delete loggedUsers[userId].chat; });
+        let chat = chatWindow(loggedUsers[userId].user, sendMessage, requestCall, function () { delete loggedUsers[userId].chat; });
         chatsList.appendChild(chat.ui);
         loggedUsers[userId].chat = chat;
     }

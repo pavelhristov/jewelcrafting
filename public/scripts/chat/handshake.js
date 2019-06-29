@@ -1,19 +1,22 @@
-/* globals questions */
+/* globals questions, CALL_REQUEST_RESPONSE */
 
 let handshake = (function () {
     let queued = {};
     let socket;
 
-    function init(gem) {
+    function init(gem, validateState) {
         socket = gem;
 
         socket.on('handshake', function (data) {
             if (data.type === 'asking') {
-                requestCall(data);
+                if (validateState(data.theme)) { // validates if the user available for the handshake request
+                    requestCall(data);
+                } else {
+                    respond(data.theme, data.from, data.to, CALL_REQUEST_RESPONSE.NOT_AVAILABLE);
+                }
             } else if (data.type === 'answering') {
-                console.log('answer', data);
-                queued[data.from][data.theme](data.response);
-                delete queued[data.from][data.theme];
+                queued[data.from.id][data.theme](data.response);
+                delete queued[data.from.id][data.theme];
             }
         });
     }
@@ -33,18 +36,18 @@ let handshake = (function () {
         }
 
         queued[user.id][theme] = onReadyHandler;
-        socket.emit('handshake', { theme, to: user.id, type: 'asking' });
+        socket.emit('handshake', { theme, to: user, type: 'asking' });
     }
 
     function requestCall(data) {
         questions.ask(data.theme, {
             header: `Incoming ${data.theme}`,
-            text: `from ${data.from}`,
+            text: `from ${data.from.name}`,
             actions: [
-                { title: 'Ok', handler: () => { respond(data.theme, data.from, data.to, 'Ok'); } },
-                { title: 'Cancel', handler: () => { respond(data.theme, data.from, data.to, 'Cancel'); } }
+                { title: 'Accept', handler: () => { respond(data.theme, data.from, data.to, CALL_REQUEST_RESPONSE.ACCEPTED); } },
+                { title: 'Decline', handler: () => { respond(data.theme, data.from, data.to, CALL_REQUEST_RESPONSE.DECLINED); } }
             ],
-            onTimeout: () => { respond(data.theme, data.from, data.to, 'TimedOut'); }
+            onTimeout: () => { respond(data.theme, data.from, data.to, CALL_REQUEST_RESPONSE.TIMED_OUT); }
         });
     }
 

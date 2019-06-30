@@ -33,11 +33,13 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
 
     let pc;
     let _stream;
+    let videoSender;
+    let audioSender;
     let isDescriptionSet = false;
     let config = {};
 
     registerSignaling();
-    
+
     //-------------------------------------------------------------------------------------------------------
     // Methods
 
@@ -73,7 +75,11 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
 
         if (_stream) {
             _stream.getTracks().forEach(track => track.stop());
+            _stream = undefined;
         }
+
+        videoSender = undefined;
+        audioSender = undefined;
 
         if (config && config.userId) {
             if (!doNotEmit) {
@@ -83,7 +89,7 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
             config = {};
         }
 
-        if(onClose || typeof onClose === 'function'){
+        if (onClose || typeof onClose === 'function') {
             onClose();
         }
     }
@@ -101,7 +107,7 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
      * @returns {Promise} Promise that handles initialization of audio (and video) stream
      */
     function create(userId, isVideo) {
-        if(onCallStart || typeof onCallStart === 'function'){
+        if (onCallStart || typeof onCallStart === 'function') {
             onCallStart(userId);
         }
 
@@ -123,9 +129,46 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
             video: isVideo
         }).then(function (stream) {
             _stream = stream;
-            setupVideoElement(stream, 'local-video').muted = true;
-            stream.getTracks().forEach(track => pc.addTrack(track, stream));
+            setupVideoElement(_stream, 'local-video').muted = true;
+            let videoTrack = _stream.getVideoTracks()[0];
+            let audioTrack = _stream.getAudioTracks()[0];
+            videoSender = pc.addTrack(videoTrack, _stream);
+            audioSender = pc.addTrack(audioTrack, _stream);
         });
+    }
+
+    function shareScreen() {
+        return navigator.mediaDevices.getDisplayMedia()
+            .then(changeVideoTrack)
+            .then(callOffer);
+    }
+
+    function stopScreenSharing() {
+        return navigator.mediaDevices.getUserMedia({ video: true })
+            .then(changeVideoTrack)
+            .then(callOffer);
+    }
+
+    // For testing purposes. TODO: remove and bind to UI instead! 
+    window.shareScreen = shareScreen;
+    window.stopScreenSharing = stopScreenSharing;
+
+    /**
+     * Changes the current video track with the first from provided stream
+     * 
+     * @param {MediaSteam} stream media stream
+     */
+    function changeVideoTrack(stream) {
+        pc.removeTrack(videoSender);
+        let currentTrack = _stream.getVideoTracks()[0];
+        currentTrack.stop();
+        _stream.removeTrack(currentTrack);
+
+        let newTrack = stream.getVideoTracks()[0];
+        _stream.addTrack(newTrack);
+        videoSender = pc.addTrack(newTrack, _stream);
+
+        setupVideoElement(_stream, 'local-video').muted = true;
     }
 
     /**
@@ -139,23 +182,18 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
                 pc.addIceCandidate(data.candidate);
             }
 
-            if (data.type === 'setRemoteAnswer') {
+            if (data.type === 'setAnswer') {
                 pc.setRemoteDescription(data.desc);
                 isDescriptionSet = true;
                 setupCallControlElement();
             }
 
-            if (data.type === 'setRemoteDescription') {
-                create(data.userId, data.isVideo).then(function () {
-                    pc.setRemoteDescription(data.desc);
-                    pc.createAnswer().then(function (desc) {
-                        pc.setLocalDescription(desc);
-                        isDescriptionSet = true;
-                        setupCallControlElement();
-
-                        socket.emit('webrtc', { type: 'setRemoteAnswer', userId: config.userId, desc });
-                    }, onError);
-                });
+            if (data.type === 'setDescription') {
+                if (!pc) {
+                    create(data.userId, data.isVideo).then(() => setRemoteDescription(data.desc));
+                } else {
+                    setRemoteDescription(data.desc);
+                }
             }
 
             if (data.type === 'close') {
@@ -174,12 +212,37 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
      * @returns {Promise} resolves when the signaling has begin.
      */
     function startCall(userId, isVideo) {
-        return create(userId, isVideo).then(function () {
-            return pc.createOffer({ offerToReceiveAudio: 1, offerToReceiveVideo: config.isVideo ? 1 : 0 }).then(function (desc) {
-                pc.setLocalDescription(desc);
-                socket.emit('webrtc', { type: 'setRemoteDescription', userId: config.userId, isVideo: config.isVideo, desc });
-            }, onError);
-        });
+        return create(userId, isVideo).then(callOffer);
+    }
+
+    /**
+     * Creates and sends offer.
+     * 
+     * Creates an offer and sends it the other user to initialize the call or to notify change of streams.
+     * 
+     * @returns {Promise} .
+     */
+    function callOffer() {
+        return pc.createOffer({ offerToReceiveAudio: 1, offerToReceiveVideo: config.isVideo ? 1 : 0 }).then(function (desc) {
+            pc.setLocalDescription(desc);
+            socket.emit('webrtc', { type: 'setDescription', userId: config.userId, isVideo: config.isVideo, desc });
+        }, onError);
+    }
+
+    /**
+     * Sets provided offer description, generates anwer and sends it to the other user.
+     * 
+     * @param {Object} desc webrtc offer description 
+     */
+    function setRemoteDescription(desc) {
+        pc.setRemoteDescription(desc);
+        pc.createAnswer().then(function (desc) {
+            pc.setLocalDescription(desc);
+            isDescriptionSet = true;
+            setupCallControlElement();
+
+            socket.emit('webrtc', { type: 'setAnswer', userId: config.userId, desc });
+        }, onError);
     }
 
     //-------------------------------------------------------------------------------------------------------

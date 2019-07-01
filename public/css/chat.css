@@ -71,6 +71,7 @@
     border: 1px solid crimson;
     position: relative;
     width: calc(100% - 180px);
+    max-height: 600px;
     background-color: #666;
 }
 
@@ -78,10 +79,70 @@
         position: absolute;
         left: 10px;
         top: 10px;
-        width: 150px;
+        max-width: 150px;
+        max-height: 120px;
     }
 
     .video-wrapper .remote-video{
         margin: auto;
         display: block;
+        max-width: 95%;
+        max-height: 100%;
     }
+
+    .video-wrapper .video-control{
+        height: 30px;
+        background-color: #555;
+        width: 100%;
+        position: absolute;
+        bottom: 0;
+        opacity: 0.01;
+        transition: opacity 0.5s ease-in-out;
+        text-align: center;
+    }
+
+        .video-wrapper:hover .video-control{
+            opacity: 0.8;
+        }
+
+        .video-wrapper .video-control > button{
+            height: 26px;
+            margin: 2px;
+        }
+
+.video-wrapper.mini{
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    max-width: 400px;
+    max-height: 300px;
+    width: auto;
+}
+
+    .video-wrapper.mini .local-video{
+        max-width: 50px;
+        max-height: 40px;
+    }
+
+.video-wrapper.full-screen{
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 9000;
+    border: none;
+}
+
+/*--------------------------------------------------
+ *   Common styles
+ *--------------------------------------------------*/
+
+.btn-dark {
+    border-radius: 2px;
+    border-color: darkred;
+    background-color: #111;
+    color: #fff;
+}
+
+    

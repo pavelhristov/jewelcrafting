@@ -37,6 +37,9 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
     let audioSender;
     let isDescriptionSet = false;
     let config = {};
+    let videoWindow;
+    let isScreenSharing = false;
+    let isMuted = false;
 
     registerSignaling();
 
@@ -48,7 +51,7 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
     }
 
     function gotRemoteStream(ev) {
-        setupVideoElement(ev.streams && ev.streams.length ? ev.streams[0] : ev.stream, 'remote-video');
+        videoWindow.remoteVideo.srcObject = ev.streams && ev.streams.length ? ev.streams[0] : ev.stream;
     }
 
     /**
@@ -59,11 +62,9 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
      * @param {bool} doNotEmit prevents signaling the other user to close the connection(for internal purposes when the request comes from other user)
      */
     function close(doNotEmit) {
-        let wrapper = document.querySelector('.video-wrapper');
-        if (wrapper) {
-            wrapper.querySelector('.remote-video').srcObject = null;
-            wrapper.querySelector('.local-video').srcObject = null;
-            wrapper.parentElement.removeChild(wrapper);
+        if (videoWindow) {
+            videoWindow.destroy();
+            videoWindow = undefined;
         }
 
         if (pc) {
@@ -80,6 +81,7 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
 
         videoSender = undefined;
         audioSender = undefined;
+        isDescriptionSet = false;
 
         if (config && config.userId) {
             if (!doNotEmit) {
@@ -92,6 +94,10 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
         if (onClose || typeof onClose === 'function') {
             onClose();
         }
+    }
+
+    function closeHandler(ev) {
+        close();
     }
 
     /**
@@ -116,7 +122,14 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
         config.userId = userId;
         config.isVideo = isVideo;
 
-        createVideoWrapper();
+        if (videoWindow) {
+            videoWindow.destroy();
+        }
+
+        videoWindow = new VideoWindow(document.querySelector('body'));
+        videoWindow.btnClose.addEventListener('click', closeHandler);
+        videoWindow.btnShareScreen.addEventListener('click', shareScreenHandler);
+        videoWindow.btnMute.addEventListener('click', muteHandler);
 
         pc.onicecandidate = function (ev) {
             if (ev.candidate && isDescriptionSet) {
@@ -129,7 +142,7 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
             video: isVideo
         }).then(function (stream) {
             _stream = stream;
-            setupVideoElement(_stream, 'local-video').muted = true;
+            videoWindow.localVideo.srcObject = _stream;
             let videoTrack = _stream.getVideoTracks()[0];
             let audioTrack = _stream.getAudioTracks()[0];
             videoSender = pc.addTrack(videoTrack, _stream);
@@ -137,21 +150,31 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
         });
     }
 
+    /**
+     * Requests screen stream and replaces the camera stream
+     * 
+     * @access private
+     * 
+     * @returns {Promise} .
+     */
     function shareScreen() {
         return navigator.mediaDevices.getDisplayMedia()
             .then(changeVideoTrack)
             .then(callOffer);
     }
 
+    /**
+     * Requests camera stream and replaces the screen stream
+     * 
+     * @access private
+     * 
+     * @returns {Promise} .
+     */
     function stopScreenSharing() {
         return navigator.mediaDevices.getUserMedia({ video: true })
             .then(changeVideoTrack)
             .then(callOffer);
     }
-
-    // For testing purposes. TODO: remove and bind to UI instead! 
-    window.shareScreen = shareScreen;
-    window.stopScreenSharing = stopScreenSharing;
 
     /**
      * Changes the current video track with the first from provided stream
@@ -168,7 +191,7 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
         _stream.addTrack(newTrack);
         videoSender = pc.addTrack(newTrack, _stream);
 
-        setupVideoElement(_stream, 'local-video').muted = true;
+        videoWindow.localVideo.srcObject = _stream;
     }
 
     /**
@@ -185,7 +208,6 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
             if (data.type === 'setAnswer') {
                 pc.setRemoteDescription(data.desc);
                 isDescriptionSet = true;
-                setupCallControlElement();
             }
 
             if (data.type === 'setDescription') {
@@ -223,6 +245,7 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
      * @returns {Promise} .
      */
     function callOffer() {
+        isDescriptionSet = false;
         return pc.createOffer({ offerToReceiveAudio: 1, offerToReceiveVideo: config.isVideo ? 1 : 0 }).then(function (desc) {
             pc.setLocalDescription(desc);
             socket.emit('webrtc', { type: 'setDescription', userId: config.userId, isVideo: config.isVideo, desc });
@@ -239,57 +262,48 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
         pc.createAnswer().then(function (desc) {
             pc.setLocalDescription(desc);
             isDescriptionSet = true;
-            setupCallControlElement();
 
             socket.emit('webrtc', { type: 'setAnswer', userId: config.userId, desc });
         }, onError);
     }
 
     //-------------------------------------------------------------------------------------------------------
-    // UI logic
-    function createVideoWrapper() {
-        let videoWrapper = document.createElement('div');
-        videoWrapper.classList += 'video-wrapper';
-        document.querySelector('body').appendChild(videoWrapper);
-    }
+    // Event handlers
 
-    /**
-     * Initializes video element with provided stream and attaches it to the video wrapper.
-     * 
-     * @access private
-     * 
-     * @param {MediaStream} stream media stream to display
-     * @param {string} cssClass css class to separate video elements ('remote-video', 'local-video')
-     * @returns {HTMLElement} video element attached to the video wrapper and attached with the provided stream.
-     */
-    function setupVideoElement(stream, cssClass) {
-        let wrapper = document.querySelector('.video-wrapper');
-        let video = wrapper.querySelector(`.${cssClass}`);
-        if (!video) {
-            video = document.createElement('video');
-            video.classList += cssClass;
-            video.autoplay = true;
-            video.playsinline = true;
-            wrapper.appendChild(video);
+    function shareScreenHandler(ev) {
+        if (!isDescriptionSet) {
+            return;
         }
 
-        video.srcObject = stream;
-        return video;
-    }
-
-    function setupCallControlElement() {
-        let wrapper = document.querySelector('.video-wrapper');
-        let callControl = wrapper.querySelector('.call-control');
-        if (!callControl) {
-            callControl = document.createElement('div');
-            callControl.classList += 'call-control';
-            let btnClose = document.createElement('btn');
-            btnClose.textContent = 'close call';
-            btnClose.addEventListener('click', () => { close(); console.log('closing call'); });
-            callControl.appendChild(btnClose);
-            wrapper.appendChild(callControl);
+        if (isScreenSharing) {
+            stopScreenSharing().then(() => {
+                ev.target.textContent = 'share screen';
+                isScreenSharing = false;
+            });
+        } else {
+            shareScreen().then(() => {
+                ev.target.textContent = 'stop sharing';
+                isScreenSharing = true;
+            });
         }
     }
+
+    function muteHandler(ev) {
+        if (!isDescriptionSet) {
+            return;
+        }
+
+        if (isMuted) {
+            _stream.getAudioTracks()[0].enabled = true;
+            ev.target.textContent = 'mute mic';
+            isMuted = false;
+        } else {
+            _stream.getAudioTracks()[0].enabled = false;
+            ev.target.textContent = 'unmute mic';
+            isMuted = true;
+        }
+    }
+
     //-------------------------------------------------------------------------------------------------------
 
     return {
@@ -301,4 +315,98 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
         close: () => close()
     };
 }
+
+/**
+ * Internal class for p2p object to handle UI
+ * 
+ * @access private
+ */
+class VideoWindow {
+    constructor(parent) {
+        this.parent = parent;
+        this.currentState = 'normal';
+        this.wrapper = document.createElement('div');
+        this.wrapper.classList.add('video-wrapper');
+
+        this.localVideo = document.createElement('video');
+        this.localVideo.classList.add('local-video');
+        this.localVideo.autoplay = true;
+        this.localVideo.playsinline = true;
+        this.localVideo.muted = true;
+        this.wrapper.appendChild(this.localVideo);
+
+        this.remoteVideo = document.createElement('video');
+        this.remoteVideo.classList.add('remote-video');
+        this.remoteVideo.autoplay = true;
+        this.remoteVideo.playsinline = true;
+        this.wrapper.appendChild(this.remoteVideo);
+
+        this.videoControl = document.createElement('div');
+        this.videoControl.classList.add('video-control');
+
+        this.btnClose = this.attachButton('close');
+        this.btnShareScreen = this.attachButton('share screen');
+        this.btnMute = this.attachButton('mute mic');
+
+        this.btnMinimize = this.attachButton('minimize');
+        this.btnMinimize.addEventListener('click', this.setState.bind(this, 'mini'));
+
+        this.btnFullScreen = this.attachButton('full screen');
+        this.btnFullScreen.addEventListener('click', this.setState.bind(this, 'full-screen'));
+
+        this.wrapper.appendChild(this.videoControl);
+        this.parent.appendChild(this.wrapper);
+    }
+
+    attachButton(text) {
+        let btn = document.createElement('button');
+        btn.textContent = text;
+        btn.classList.add('btn-dark');
+        this.videoControl.appendChild(btn);
+        return btn;
+    }
+
+    setState(state) {
+        switch (this.currentState) {
+            case 'mini':
+                this.wrapper.classList.remove('mini');
+                this.btnMinimize.textContent = 'minimize';
+                break;
+
+            case 'full-screen':
+                this.wrapper.classList.remove('full-screen');
+                this.btnFullScreen.textContent = 'full screen';
+                break;
+            default:
+                break;
+        }
+
+        if (state === this.currentState) {
+            return;
+        }
+
+        switch (state) {
+            case 'mini':
+                this.btnMinimize.textContent = 'normal view';
+                this.wrapper.classList.add('mini');
+                break;
+            case 'full-screen':
+                this.btnFullScreen.textContent = 'normal view';
+                this.wrapper.classList.add('full-screen');
+                break;
+
+            default:
+                break;
+        }
+
+        this.currentState = state;
+    }
+
+    destroy() {
+        this.localVideo.pause();
+        this.remoteVideo.pause();
+        this.parent.removeChild(this.wrapper);
+    }
+}
+
 

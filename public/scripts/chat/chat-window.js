@@ -1,26 +1,24 @@
 /* globals MESSAGE_TYPE */
 
-function chatWindow(user, sendMessage, requestCall, onClose) {
-    const chat = buildUI(user);
+function chatWindow(user, localUser, sendMessage, requestCall, onClose) {
+    const { chat, messages } = buildUI(user);
 
     function buildUI(user) {
         let chat = document.createElement('div');
-        chat.classList += 'chat-wrapper';
-        chat.setAttribute('data-username', user.name);
-        chat.setAttribute('data-id', user.id);
+        chat.classList.add('chat-wrapper');
 
         let header = document.createElement('div');
-        header.classList += 'chat-header';
+        header.classList.add('chat-header');
         header.innerText += user.name;
 
         let callIcon = document.createElement('button');
         callIcon.innerText = 'start call';
-        callIcon.classList += 'start-call';
+        callIcon.classList.add('btn-dark', 'start-call');
         callIcon.addEventListener('click', requestCall.bind(callIcon, user, 'video'));
 
         let close = document.createElement('button');
         close.innerText = 'X';
-        close.classList += 'close-icon';
+        close.classList.add('btn-dark', 'close-icon');
         close.addEventListener('click', closeChatHandler);
 
         header.appendChild(close);
@@ -28,14 +26,17 @@ function chatWindow(user, sendMessage, requestCall, onClose) {
         chat.appendChild(header);
 
         let messages = document.createElement('div');
-        messages.classList += 'chat-messages';
+        messages.classList.add('chat-messages');
         chat.appendChild(messages);
 
+        let areaWrapper = document.createElement('div');
+        areaWrapper.classList.add('chat-input-wrapper');
         let chatInputArea = document.createElement('textarea');
-        chatInputArea.classList += 'chat-input';
+        chatInputArea.classList.add('chat-input');
         chatInputArea.addEventListener('keydown', sendMessageHandler);
-        chat.appendChild(chatInputArea);
-        return chat;
+        areaWrapper.appendChild(chatInputArea);
+        chat.appendChild(areaWrapper);
+        return { chat, messages };
     }
 
     function closeChatHandler(ev) {
@@ -59,34 +60,48 @@ function chatWindow(user, sendMessage, requestCall, onClose) {
             ev.target.value = '';
             let date = new Date().toLocaleTimeString();
             sendMessage({ user, message, date });
-            showMessage({ user, message, date });
+            showLocalMessage({ message, date });
 
             ev.preventDefault();
             return false;
         }
     }
 
-    function showMessage({ user, message, date, type }) {
-        if (type === MESSAGE_TYPE.IMAGE) {
-            content = `<img src="data:image/jpeg;base64,${content}" height="150" />`;
-        }
-
+    // TODO: unify showMessage and showLocalMessage
+    function showMessage({ message, date }) {
         let div = document.createElement('div');
-        div.classList += 'chat-message';
-        let content = `
-            <div class="chat-message-content">${message}</div>
-            <div class="chat-message-time">${date}</div>
-        `;
+        div.classList.add('chat-message');
+        div.appendChild(buildIcon(user));
+        let messageWrapper = document.createElement('div');
+        messageWrapper.innerHTML = `<div class="chat-message-content">${message}</div>
+            <div class="chat-message-time">${date}</div>`;
 
-        if (user.isCurrentUser) {
-            content += `<img class="chat-message-icon" src="${user.image | ''}" alt="${user.name}"/>`;
-        } else {
-            content = `<img class="chat-message-icon" src="${user.image | ''}" alt="${user.name}"/>` + content;
-        }
-
-        div.innerHTML = content;
-        chat.querySelector('.chat-messages').appendChild(div);
+        div.appendChild(messageWrapper);
+        messages.appendChild(div);
+        messages.scrollTop = messages.scrollHeight - messages.clientHeight;
     }
 
-    return { ui: chat, showMessage, close: closeChatHandler };
+    function showLocalMessage({ message, date }) {
+        let div = document.createElement('div');
+        div.classList.add('chat-message', 'local-chat-message');
+        let messageWrapper = document.createElement('div');
+        messageWrapper.innerHTML = `<div class="chat-message-content">${message}</div>
+            <div class="chat-message-time">${date}</div>`;
+
+        div.appendChild(messageWrapper);
+        div.appendChild(buildIcon(localUser));
+        messages.appendChild(div);
+        messages.scrollTop = messages.scrollHeight - messages.clientHeight;
+    }
+
+    function buildIcon(user) {
+        let img = document.createElement('img');
+        img.classList.add('chat-message-icon');
+        img.src = user.image || '';
+        img.alt = user.name;
+
+        return img;
+    }
+
+    return { ui: chat, showMessage, showLocalMessage, close: closeChatHandler };
 }

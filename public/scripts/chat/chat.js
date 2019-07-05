@@ -167,7 +167,7 @@ function chat(io, user) {
             return;
         }
 
-        let chat = chatWindow(loggedUsers[userId].user, sendMessage, requestCall, function () { delete loggedUsers[userId].chat; });
+        let chat = chatWindow(loggedUsers[userId].user, user, sendMessage, requestCall, function () { delete loggedUsers[userId].chat; });
         chatsList.appendChild(chat.ui);
         loggedUsers[userId].chat = chat;
     }
@@ -176,13 +176,17 @@ function chat(io, user) {
         if (message.type === MESSAGE_TYPE.SYSTEM || !userId || !loggedUsers[userId]) {
             return;
         }
+        
+        if (type === MESSAGE_TYPE.IMAGE) {
+            message = `<img src="data:image/jpeg;base64,${message}" height="150" />`;
+        }
 
         if (!loggedUsers[userId].chat) {
             openChat(userId);
         }
 
         let date = new Date().toLocaleTimeString();
-        loggedUsers[userId].chat.showMessage({ user: loggedUsers[userId].user, message, date, type });
+        loggedUsers[userId].chat.showMessage({ message, date, type });
     }
 }
 

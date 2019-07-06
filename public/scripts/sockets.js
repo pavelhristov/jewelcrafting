@@ -1,25 +1,16 @@
-/* globals io, guid, chat */
+/* globals io, guid, chat, authorize */
 
 'use strict';
 
 const container = document.getElementById('container');
 
-container.querySelector('button').addEventListener('click', function (ev) {
-    let username = this.previousElementSibling.value || '';
-    username = username.trim();
-    if (!username || username.length < 3) {
-        alert('you need an user name thats lengthier than 3!');
-        return false;
-    }
+authorize.setOnLogin(onLogin);
+authorize.login(container);
 
+function onLogin (user) {
     container.innerHTML = ``;
-    let user  = {
-        name: username,
-        id: guid()
-    };
-    
     chat(io, user);
-});
+}
 
     //----------------------------------------------------------------------------
     // const fileInput = container.querySelector('.input-file');

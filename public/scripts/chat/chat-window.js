@@ -32,7 +32,7 @@ function chatWindow(user, localUser, sendMessage, requestCall, onClose) {
         let areaWrapper = document.createElement('div');
         areaWrapper.classList.add('chat-input-wrapper');
         let chatInputArea = document.createElement('textarea');
-        chatInputArea.classList.add('chat-input');
+        chatInputArea.classList.add('input-dark', 'chat-input');
         chatInputArea.addEventListener('keydown', sendMessageHandler);
         areaWrapper.appendChild(chatInputArea);
         chat.appendChild(areaWrapper);

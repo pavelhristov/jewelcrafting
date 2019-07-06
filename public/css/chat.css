@@ -99,12 +99,7 @@
         height: 50px;
         box-sizing: border-box;
         resize: none;
-        border: none;
-        background-color: #666;
-        color: #fff;
-        border-radius: 5px;
         width: 100%;
-        padding: 5px;
     }
 
 /*--------------------------------------------------
@@ -235,4 +230,54 @@
     white-space: nowrap;
 }
 
+.input-dark{
+    border: none;
+    background-color: #666;
+    color: #fff;
+    border-radius: 5px;
+    padding: 5px;
+}
+   
+/*--------------------------------------------------
+ *   Authorize styles
+ *--------------------------------------------------*/
+
+.login-wrapper{
+    width: 300px;
+    margin: auto;
+    background-color: #333;
+    color: #fff;
+    border-radius: 5px;
+    padding: 10px;
+}
+
+    .login-wrapper h2{
+        text-align: center;
+    }
+
+    .login-wrapper label{
+        display: block;
+        margin-bottom: 10px;
+    }
+
+        .login-wrapper label .label-text{
+            text-align: right;
+            display: inline-block;
+            width: 40%;
+            padding: 5px;
+            box-sizing: border-box;
+        }
+
+        .login-wrapper label input{
+            width: 60%;
+            box-sizing: border-box;
+        }
+
+    .login-wrapper .action-wrapper {
+        text-align: right;
+    }
     
+        .login-wrapper .action-wrapper button {
+            font-weight: bolder;
+            font-size: 14px;
+        }

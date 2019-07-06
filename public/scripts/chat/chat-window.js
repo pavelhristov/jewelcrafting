@@ -96,7 +96,7 @@ function chatWindow(user, localUser, sendMessage, requestCall, onClose) {
 
     function buildIcon(user) {
         let img = document.createElement('img');
-        img.classList.add('chat-message-icon');
+        img.classList.add('user-icon', 'chat-message-icon');
         img.src = user.image || '';
         img.alt = user.name;
 

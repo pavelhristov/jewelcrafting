@@ -66,8 +66,6 @@
         .chat-wrapper .chat-messages .chat-message .chat-message-icon{
             max-height: 30px;
             max-width: 30px;
-            border: 1px solid black;
-            border-radius: 6px;
         }
         
         .chat-wrapper .chat-messages .chat-message .chat-message-time {
@@ -120,11 +118,27 @@
     height: 100vh;
     top: 0;
     right: 0;
+    background-color: #333;
 }
 
-    .users-list > div{
-        border-bottom: 1px solid darkred;
+    .users-list .user-info {
+        margin: 2px;
+        border-radius: 3px;
+        background-color: #555;
     }
+
+        .users-list .user-info > span{
+            margin: 3px;
+            display: inline-block;
+            vertical-align: top;
+            width: 135px;
+            font-size: 18px;
+        }
+
+        .users-list .user-info > img {
+            margin-bottom: -2px;
+            margin-top: 2px;
+        }
 
 /*--------------------------------------------------
  *   Video
@@ -206,6 +220,19 @@
     border-color: darkred;
     background-color: #111;
     color: #fff;
+}
+
+.user-icon {
+    max-height: 25px;
+    max-width: 25px;
+    border: 1px solid black;
+    border-radius: 6px;
+}
+
+.ellipsis {
+    overflow-x: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
     

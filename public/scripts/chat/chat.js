@@ -15,6 +15,7 @@ const CALL_REQUEST_RESPONSE = {
 
 function chat(io, user) {
     //-------------------------------------------------------------------------------
+    const wrapper = document.querySelector('body');
     const socket = io('', { query: `name=${user.name}&id=${user.id}` });
     let callInfo = { isInCall: false, isCalling: false };
     handshake.init(socket, (requestTheme) => requestTheme === 'call' ? !callInfo.isInCall && !callInfo.isCalling : false);
@@ -103,15 +104,18 @@ function chat(io, user) {
     //----------------------------------------------------------------------------
 
     let loggedUsers = {};
-    let usersList = document.createElement('div');
-    usersList.classList += 'users-list';
-    document.querySelector('body').appendChild(usersList);
-
+    const usersList = createUsersList();
     let chatsList = document.createElement('div');
-    chatsList.classList += 'chats-list';
-    document.querySelector('body').appendChild(chatsList);
+    chatsList.classList.add('chats-list');
+    wrapper.appendChild(chatsList);
 
-    bindEvents();
+    function createUsersList() {
+        let usersList = document.createElement('div');
+        usersList.classList.add('users-list');
+        wrapper.appendChild(usersList);
+
+        return usersList;
+    }
 
     // mockup until notifications are a thing
     function notify(message) {
@@ -123,17 +127,27 @@ function chat(io, user) {
             return;
         }
 
-        loggedUsers[user.id] = { user };
         let userInfo = document.createElement('div');
-        userInfo.textContent = user.name;
-        userInfo.setAttribute('data-username', user.name);
-        userInfo.setAttribute('data-id', user.id);
-        userInfo.classList += 'user-info';
+        userInfo.addEventListener('click', function () { openChat(user.id); });
+        userInfo.classList.add('user-info');
+
+        let userName = document.createElement('span');
+        userName.classList.add('ellipsis');
+        userName.textContent = user.name;
+        userInfo.appendChild(userName);
+
+        let userIcon = document.createElement('img');
+        userIcon.classList.add('user-icon');
+        userIcon.src = user.image || '';
+        userIcon.alt = user.name;
+        userInfo.appendChild(userIcon);
+
         usersList.appendChild(userInfo);
+        loggedUsers[user.id] = { user, listElement: userInfo };
     }
 
     function remove(userId) {
-        if (!userId) {
+        if (!userId || !loggedUsers[userId]) {
             return;
         }
 
@@ -141,24 +155,11 @@ function chat(io, user) {
             loggedUsers[userId].chat.close();
         }
 
-        delete loggedUsers[userId];
-        let element = usersList.querySelector(`[data-id="${userId}"]`);
-        if (element) {
-            usersList.removeChild(element);
+        if (loggedUsers[userId].listElement) {
+            usersList.removeChild(loggedUsers[userId].listElement);
         }
-    }
 
-    function bindEvents() {
-        usersList.addEventListener('click', function (ev) {
-            if (!ev || !ev.target || !ev.target.classList) {
-                return;
-            }
-
-            if (ev.target.classList.contains('user-info')) {
-                let userId = ev.target.getAttribute('data-id');
-                openChat(userId);
-            }
-        });
+        delete loggedUsers[userId];
     }
 
     function openChat(userId) {
@@ -176,7 +177,7 @@ function chat(io, user) {
         if (message.type === MESSAGE_TYPE.SYSTEM || !userId || !loggedUsers[userId]) {
             return;
         }
-        
+
         if (type === MESSAGE_TYPE.IMAGE) {
             message = `<img src="data:image/jpeg;base64,${message}" height="150" />`;
         }

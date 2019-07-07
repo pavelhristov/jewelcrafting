@@ -274,7 +274,7 @@
         }
 
     .login-wrapper .action-wrapper {
-        text-align: right;
+        margin-top: 50px;
     }
     
         .login-wrapper .action-wrapper button {

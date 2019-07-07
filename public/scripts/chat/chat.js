@@ -82,7 +82,7 @@ function chat(io, user) {
         handshake.requestHandshake('call', user, function (response) {
             switch (response) {
                 case CALL_REQUEST_RESPONSE.ACCEPTED:
-                    peer.startCall(user.id, true);
+                    peer.startCall(user.id, callType === 'video');
                     break;
                 case CALL_REQUEST_RESPONSE.DECLINED:
                     notify(`${user.name} rejected the call request!`);

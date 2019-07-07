@@ -1,7 +1,7 @@
 'use strict';
 // TODO: 
-//  - audio only calls
 //  - refactor and abstract UI logic
+//  - clear frozen video when videotrack has been stoped
 
 /**
  * @typedef {Object} PeerToPeer
@@ -51,7 +51,8 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
     }
 
     function gotRemoteStream(ev) {
-        videoWindow.remoteVideo.srcObject = ev.streams && ev.streams.length ? ev.streams[0] : ev.stream;
+        let stream = ev.streams && ev.streams.length ? ev.streams[0] : ev.stream;
+        videoWindow.remoteVideo.srcObject = stream;
     }
 
     /**
@@ -121,6 +122,7 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
         pc.ontrack = gotRemoteStream;
         config.userId = userId;
         config.isVideo = isVideo;
+        config.videoState = isVideo ? 'camera' : 'none';
 
         if (videoWindow) {
             videoWindow.destroy();
@@ -130,6 +132,7 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
         videoWindow.btnClose.addEventListener('click', closeHandler);
         videoWindow.btnShareScreen.addEventListener('click', shareScreenHandler);
         videoWindow.btnMute.addEventListener('click', muteHandler);
+        videoWindow.btnCamera.addEventListener('click', toggleCameraHandler);
 
         pc.onicecandidate = function (ev) {
             if (ev.candidate && isDescriptionSet) {
@@ -139,14 +142,16 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
 
         return navigator.mediaDevices.getUserMedia({
             audio: true,
-            video: isVideo
+            video: config.isVideo
         }).then(function (stream) {
             _stream = stream;
             videoWindow.localVideo.srcObject = _stream;
-            let videoTrack = _stream.getVideoTracks()[0];
             let audioTrack = _stream.getAudioTracks()[0];
-            videoSender = pc.addTrack(videoTrack, _stream);
             audioSender = pc.addTrack(audioTrack, _stream);
+            if (config.isVideo) {
+                let videoTrack = _stream.getVideoTracks()[0];
+                videoSender = pc.addTrack(videoTrack, _stream);
+            }
         });
     }
 
@@ -160,6 +165,7 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
     function shareScreen() {
         return navigator.mediaDevices.getDisplayMedia()
             .then(changeVideoTrack)
+            .then(() => { config.videoState = 'screen-share'; })
             .then(callOffer);
     }
 
@@ -171,9 +177,31 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
      * @returns {Promise} .
      */
     function stopScreenSharing() {
-        return navigator.mediaDevices.getUserMedia({ video: true })
-            .then(changeVideoTrack)
-            .then(callOffer);
+        if (config.isVideo) {
+            return navigator.mediaDevices.getUserMedia({ video: true })
+                .then(changeVideoTrack)
+                .then(() => { config.videoState = 'camera'; })
+                .then(callOffer);
+        }
+
+        return Promise.resolve().then(() => {
+            stopVideoStream();
+            videoWindow.localVideo.srcObject = _stream;
+            config.videoState = 'none';
+        });
+    }
+
+    /**
+     * Stops current video sharing (does not affect audio)
+     */
+    function stopVideoStream() {
+        if (config.videoState && config.videoState !== 'none') {
+            pc.removeTrack(videoSender);
+            let currentTrack = _stream.getVideoTracks()[0];
+            currentTrack.stop();
+            _stream.removeTrack(currentTrack);
+            videoSender = null;
+        }
     }
 
     /**
@@ -182,10 +210,7 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
      * @param {MediaSteam} stream media stream
      */
     function changeVideoTrack(stream) {
-        pc.removeTrack(videoSender);
-        let currentTrack = _stream.getVideoTracks()[0];
-        currentTrack.stop();
-        _stream.removeTrack(currentTrack);
+        stopVideoStream();
 
         let newTrack = stream.getVideoTracks()[0];
         _stream.addTrack(newTrack);
@@ -211,11 +236,8 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
             }
 
             if (data.type === 'setDescription') {
-                if (!pc) {
-                    create(data.userId, data.isVideo).then(() => setRemoteDescription(data.desc));
-                } else {
-                    setRemoteDescription(data.desc);
-                }
+                let promise = !pc ? create(data.userId, data.isVideo) : Promise.resolve();
+                promise.then(() => setRemoteDescription(data.desc));
             }
 
             if (data.type === 'close') {
@@ -275,15 +297,13 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
             return;
         }
 
-        if (isScreenSharing) {
+        if (config.videoState === 'screen-share') {
             stopScreenSharing().then(() => {
                 ev.target.textContent = 'share screen';
-                isScreenSharing = false;
             });
         } else {
             shareScreen().then(() => {
                 ev.target.textContent = 'stop sharing';
-                isScreenSharing = true;
             });
         }
     }
@@ -302,6 +322,26 @@ function p2p(socket, onCallStart, onClose, webrtcConfig) {
             ev.target.textContent = 'unmute mic';
             isMuted = true;
         }
+    }
+
+    function toggleCameraHandler(ev) {
+        if (config.videoState === 'camera') {
+            stopVideoStream();
+            config.isVideo = false;
+            config.videoState = 'none';
+            return callOffer;
+        }
+
+        return navigator.mediaDevices.getUserMedia({ video: true })
+            .then(changeVideoTrack)
+            .then(() => {
+                if (config.videoState === 'screen-share') { // TODO: move
+                    videoWindow.btnShareScreen.textContent = 'share screen';
+                }
+
+                config.videoState = 'camera';
+                config.isVideo = true;
+            }).then(callOffer);
     }
 
     //-------------------------------------------------------------------------------------------------------
@@ -346,6 +386,7 @@ class VideoWindow {
 
         this.btnClose = this.attachButton('close');
         this.btnShareScreen = this.attachButton('share screen');
+        this.btnCamera = this.attachButton('camera');
         this.btnMute = this.attachButton('mute mic');
 
         this.btnMinimize = this.attachButton('minimize');
@@ -382,6 +423,7 @@ class VideoWindow {
         }
 
         if (state === this.currentState) {
+            this.currentState = 'normal';
             return;
         }
 

@@ -12,9 +12,14 @@ function chatWindow(user, localUser, sendMessage, requestCall, onClose) {
         header.innerText += user.name;
 
         let callIcon = document.createElement('button');
-        callIcon.innerText = 'start call';
+        callIcon.innerText = 'voice call';
         callIcon.classList.add('btn-dark', 'start-call');
-        callIcon.addEventListener('click', requestCall.bind(callIcon, user, 'video'));
+        callIcon.addEventListener('click', requestCall.bind(callIcon, user));
+
+        let videoCallIcon = document.createElement('button');
+        videoCallIcon.innerText = 'video call';
+        videoCallIcon.classList.add('btn-dark', 'start-call');
+        videoCallIcon.addEventListener('click', requestCall.bind(videoCallIcon, user, 'video'));
 
         let close = document.createElement('button');
         close.innerText = 'X';
@@ -23,6 +28,7 @@ function chatWindow(user, localUser, sendMessage, requestCall, onClose) {
 
         header.appendChild(close);
         header.appendChild(callIcon);
+        header.appendChild(videoCallIcon);
         chat.appendChild(header);
 
         let messages = document.createElement('div');

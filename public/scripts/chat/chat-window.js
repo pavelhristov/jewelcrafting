@@ -1,4 +1,4 @@
-/* globals authorize */
+/* globals authorize, utils */
 
 function chatWindow(user, sendMessage, requestCall, onClose, sendFile) {
     const { chat, messages } = buildUI(user);
@@ -77,8 +77,7 @@ function chatWindow(user, sendMessage, requestCall, onClose, sendFile) {
         reader.onload = function () {
             let result = btoa(this.result);
             let message = '';
-            if(file.type.startsWith('image'))
-            {
+            if (file.type.startsWith('image')) {
                 message = `<img src="data:${file.type};base64,${result}" style="max-width:100%; max-height:200px" />`;
             }
 
@@ -109,6 +108,7 @@ function chatWindow(user, sendMessage, requestCall, onClose, sendFile) {
                 return false;
             }
 
+            message = utils.escapeHTML(message);
             ev.target.value = '';
             let date = new Date().toLocaleTimeString();
             sendMessage({ user, message, date });

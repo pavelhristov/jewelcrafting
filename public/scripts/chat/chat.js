@@ -13,10 +13,9 @@ const CALL_REQUEST_RESPONSE = {
     TIMED_OUT: 'timed-out'
 };
 
-function chat(io, user) {
+function chat(socket) {
     //-------------------------------------------------------------------------------
     const wrapper = document.querySelector('body');
-    const socket = io('', { query: `name=${user.name}&id=${user.id}` });
     let callInfo = { isInCall: false, isCalling: false };
     handshake.init(socket, (requestTheme) => requestTheme === 'call' ? !callInfo.isInCall && !callInfo.isCalling : false);
 
@@ -79,7 +78,7 @@ function chat(io, user) {
         }
 
         callInfo.isCalling = true;
-        handshake.requestHandshake('call', user, function (response) {
+        handshake.requestHandshake(callType === 'video' ? 'video call' : 'call', user, function (response) {
             switch (response) {
                 case CALL_REQUEST_RESPONSE.ACCEPTED:
                     peer.startCall(user.id, callType === 'video');
@@ -168,7 +167,7 @@ function chat(io, user) {
             return;
         }
 
-        let chat = chatWindow(loggedUsers[userId].user, user, sendMessage, requestCall, function () { delete loggedUsers[userId].chat; });
+        let chat = chatWindow(loggedUsers[userId].user, sendMessage, requestCall, function () { delete loggedUsers[userId].chat; }, sendFile);
         chatsList.appendChild(chat.ui);
         loggedUsers[userId].chat = chat;
     }
@@ -188,6 +187,56 @@ function chat(io, user) {
 
         let date = new Date().toLocaleTimeString();
         loggedUsers[userId].chat.showMessage({ message, date, type });
+    }
+
+    //-----------------------------------------------------------------------------------
+    // files
+    function sendFile(user, file, fileName, fileType) {
+        const CHUNK_SIZE = 40000;
+
+        let id = Math.random();
+        let chunks = Math.ceil(file.length / CHUNK_SIZE);
+        for (let i = 0; i < chunks; i++) {
+            let chunk = file.slice(i * CHUNK_SIZE, CHUNK_SIZE + 1);
+            socket.emit('send file', { user, chunk: { chunk, chunks, fileName, fileType, chunkNumer: i, fileId: id } });
+        }
+    }
+
+    socket.on('send file', recieveFile);
+    let files = {};
+    function recieveFile(data) {
+        if (!files[data.chunk.fileId]) {
+            files[data.chunk.fileId] = {
+                user: data.user,
+                totalChunks: data.chunk.chunks,
+                chunksLeft: data.chunk.chunks,
+                fileName: data.chunk.fileName,
+                fileType: data.chunk.fileType,
+                chunks: []
+            };
+        }
+
+        files[data.chunk.fileId].chunks[data.chunk.chunkNumer] = data.chunk.chunk;
+        files[data.chunk.fileId].chunksLeft--;
+        // TODO: validate if all chunks are loaded, not based on a number
+        if (files[data.chunk.fileId].chunksLeft <= 0) {
+            let file = files[data.chunk.fileId].chunks.join('');
+            let message = '';
+            if(files[data.chunk.fileId].fileType.startsWith('image'))
+            {
+                message = `<img src="data:${files[data.chunk.fileId].fileType};base64,${file}" style="max-width:100%; max-height:200px" />`;
+            }
+
+            message += `<span>${files[data.chunk.fileId].fileName}</span>`;            
+            if (!loggedUsers[files[data.chunk.fileId].user.id].chat) {
+                openChat(files[data.chunk.fileId].user.id);
+            }
+
+            let date = new Date().toLocaleTimeString();
+            loggedUsers[files[data.chunk.fileId].user.id].chat.showMessage({ message, date });
+
+            delete files[data.chunk.fileId];
+        }
     }
 }
 

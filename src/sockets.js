@@ -1,6 +1,9 @@
 module.exports = function ({ io, usersList }) {
     io.on('connection', function (socket) {
         let user = usersList.getUser(socket.handshake.query.id);
+        
+        //--------------------------------------------------------------------------------
+        // system messages
         if (!user) {
             socket.emit('user control', { message: 'Session has expired! User not found!' });
             return;
@@ -9,6 +12,20 @@ module.exports = function ({ io, usersList }) {
         socket.broadcast.emit('user control', { user, status: 'connected' });
         usersList.connectUser(user.id, socket);
 
+        socket.on('disconnect', function () {
+            socket.broadcast.emit('user control', { user, status: 'disconnected' });
+            usersList.disconnectUser(user.id);
+        });
+
+        socket.on('user control', function (data) {
+            if (data.status === 'get users') {
+                let users = usersList.getLoggedUsers(user.id);
+                socket.emit('user control', { status: 'get users', users });
+            }
+        });
+
+        //--------------------------------------------------------------------------------
+        // chat messages
         socket.on('chat message', function (data) {
             let socketId = usersList.getSocketId(data.user.id);
             if (!socketId) {
@@ -20,14 +37,17 @@ module.exports = function ({ io, usersList }) {
         });
 
         socket.on('send file', function (data) {
-            socket.broadcast.emit('send file', { user, file: data.file, type: data.type });
+            let socketId = usersList.getSocketId(data.user.id);
+            if (!socketId) {
+                socket.emit('user control', { message: data.user.name + ' is offline!' });
+                return;
+            }
+
+            socket.to(`${socketId}`).emit('send file', { user, chunk: data.chunk });
         });
 
-        socket.on('disconnect', function () {
-            socket.broadcast.emit('user control', { user, status: 'disconnected' });
-            usersList.disconnectUser(user.id);
-        });
-
+        //--------------------------------------------------------------------------------
+        // signaling
         socket.on('webrtc', function (data) {
             let socketId = usersList.getSocketId(data.userId);
             if (!socketId) {
@@ -37,13 +57,6 @@ module.exports = function ({ io, usersList }) {
 
             data.userId = user.id;
             socket.to(`${socketId}`).emit('webrtc', data);
-        });
-
-        socket.on('user control', function (data) {
-            if (data.status === 'get users') {
-                let users = usersList.getLoggedUsers(user.id);
-                socket.emit('user control', { status: 'get users', users });
-            }
         });
 
         socket.on('handshake', function (data) {

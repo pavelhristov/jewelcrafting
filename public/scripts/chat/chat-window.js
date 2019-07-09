@@ -1,11 +1,15 @@
-/* globals MESSAGE_TYPE */
+/* globals authorize */
 
-function chatWindow(user, localUser, sendMessage, requestCall, onClose) {
+function chatWindow(user, sendMessage, requestCall, onClose, sendFile) {
     const { chat, messages } = buildUI(user);
 
     function buildUI(user) {
         let chat = document.createElement('div');
         chat.classList.add('chat-wrapper');
+        chat.addEventListener('dragover', preventDefault);
+        chat.addEventListener('dragenter', preventDefault);
+        chat.addEventListener('dragleave', preventDefault);
+        chat.addEventListener('drop', onFileDrop);
 
         let header = document.createElement('div');
         header.classList.add('chat-header');
@@ -43,6 +47,48 @@ function chatWindow(user, localUser, sendMessage, requestCall, onClose) {
         areaWrapper.appendChild(chatInputArea);
         chat.appendChild(areaWrapper);
         return { chat, messages };
+    }
+
+    function onFileDrop(ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (!ev.dataTransfer || !ev.dataTransfer.files.length) {
+            return;
+        }
+
+        let files = ev.dataTransfer.files;
+        for (let i = 0; i < files.length; i++) {
+            if (!files[i]) {
+                return false;
+            }
+
+            readFile(files[i]);
+        }
+    }
+
+    function preventDefault(ev) {
+        ev.preventDefault();
+    }
+
+    function readFile(file) {
+        //TODO: size restrictions
+        let reader = new FileReader();
+        reader.readAsBinaryString(file);
+        reader.onload = function () {
+            let result = btoa(this.result);
+            let message = '';
+            if(file.type.startsWith('image'))
+            {
+                message = `<img src="data:${file.type};base64,${result}" style="max-width:100%; max-height:200px" />`;
+            }
+
+            message += `<span>${file.name}</span>`;
+            showLocalMessage({ message, date: new Date().toLocaleTimeString() });
+            sendFile(user, result, file.name, file.type);
+        };
+        reader.onerror = function () {
+            console.error('Error while reading the file!');
+        };
     }
 
     function closeChatHandler(ev) {
@@ -95,7 +141,7 @@ function chatWindow(user, localUser, sendMessage, requestCall, onClose) {
             <div class="chat-message-time">${date}</div>`;
 
         div.appendChild(messageWrapper);
-        div.appendChild(buildIcon(localUser));
+        div.appendChild(buildIcon(authorize.getUserInfo()));
         messages.appendChild(div);
         messages.scrollTop = messages.scrollHeight - messages.clientHeight;
     }

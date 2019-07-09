@@ -197,7 +197,8 @@ function chat(socket) {
         let id = Math.random();
         let chunks = Math.ceil(file.length / CHUNK_SIZE);
         for (let i = 0; i < chunks; i++) {
-            let chunk = file.slice(i * CHUNK_SIZE, CHUNK_SIZE + 1);
+            let start = i * CHUNK_SIZE;
+            let chunk = file.slice(start, start + CHUNK_SIZE);
             socket.emit('send file', { user, chunk: { chunk, chunks, fileName, fileType, chunkNumer: i, fileId: id } });
         }
     }
@@ -222,12 +223,11 @@ function chat(socket) {
         if (files[data.chunk.fileId].chunksLeft <= 0) {
             let file = files[data.chunk.fileId].chunks.join('');
             let message = '';
-            if(files[data.chunk.fileId].fileType.startsWith('image'))
-            {
+            if (files[data.chunk.fileId].fileType.startsWith('image')) {
                 message = `<img src="data:${files[data.chunk.fileId].fileType};base64,${file}" style="max-width:100%; max-height:200px" />`;
             }
 
-            message += `<span>${files[data.chunk.fileId].fileName}</span>`;            
+            message += `<span>${files[data.chunk.fileId].fileName}</span>`;
             if (!loggedUsers[files[data.chunk.fileId].user.id].chat) {
                 openChat(files[data.chunk.fileId].user.id);
             }
